@@ -1,0 +1,13 @@
+﻿  Assembling event.asm...
+event.asm(133): warning A6004: procedure argument or local not referenced : @scrPos
+event.asm(133): warning A6004: procedure argument or local not referenced : @test
+event.asm(190): warning A6004: procedure argument or local not referenced : _hWnd
+event.asm(190): warning A6004: procedure argument or local not referenced : @OldBrush
+event.asm(197): warning A6004: procedure argument or local not referenced : _hWnd
+event.asm(197): warning A6004: procedure argument or local not referenced : _hDC
+event.asm(197): warning A6004: procedure argument or local not referenced : @OldBrush
+event.asm(197): warning A6004: procedure argument or local not referenced : @OldPen
+event.asm(277): warning A6004: procedure argument or local not referenced : _hWnd
+event.asm(277): warning A6004: procedure argument or local not referenced : @OldPen
+event.asm(295): warning A6004: procedure argument or local not referenced : _hWnd
+  Glops.vcxproj -> C:\Users\Whale\source\repos\Glops\Debug\Glops.exe
