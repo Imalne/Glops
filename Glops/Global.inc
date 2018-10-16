@@ -16,6 +16,12 @@ IFNDEF GLOBAL_INC
 		y DWORD ?
 	Cell ENDS
 
+	Piece STRUCT
+		pcolor	DWORD ?
+		psize	DWORD ?
+		;pindex	POINT <>
+	Piece ENDS
+
 ;----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ;全局变量
 ;----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -30,7 +36,11 @@ IFNDEF GLOBAL_INC
 				GameStatus:DWORD,
 				BmpBackground:DWORD,
 				rePaintLabel:DWORD,
-				Board:Cell
+				Board:Cell,
+				rowSize:DWORD,
+				pieces:Piece,
+				CellSelected1:Piece,
+				CellSelected2:Piece
 
 ;----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ;常量
@@ -48,9 +58,9 @@ IFNDEF GLOBAL_INC
 	StartBtnRB		POINT		<690,450>
 	StartBtnRect	RECT		<390,400,690,450>
 	StartStr		Byte		"Start Game",0
-	CellSize		DWORD		70
-	BoardWidth		DWORD		12
-	BoardLength		DWORD		12
+	CellSize		DWORD		90
+	BoardWidth		DWORD		9
+	;BoardLength		DWORD		12
 	startX			DWORD		380
 	startY			DWORD		30
 	endX			DWORD		1220
@@ -64,6 +74,8 @@ IFNDEF GLOBAL_INC
 	HPStripLength	DWORD		800
 	HPStripWidth	DWORD		50
 	HPGap			DWORD		10
+	colorType		DWORD       6
+	Colors			DWORD		0EE3B3BH,0CD661DH,09F79EEH,09ACD32H,000EEEEH,0CD00CDH;红色，橙色，蓝色，绿色，黄色，紫色
 
 
 

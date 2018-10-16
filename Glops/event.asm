@@ -3,14 +3,16 @@
 option casemap:none
 
 include         windows.inc
+include			msvcrt.inc
+
 include         gdi32.inc
 includelib      gdi32.lib
 include         user32.inc
 includelib      user32.lib
 include         kernel32.inc
 includelib      kernel32.lib
+includelib      msvcrt.lib
 include			Global.inc
-
 .code
 
 
@@ -38,6 +40,33 @@ update proc
 	ret
 update endp
 
+;----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+;Æå×ÓÉú³É
+;----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+initPieces proc
+	;invoke crt_srand
+	mov ecx,BoardWidth
+	mov esi,offset pieces
+	L1:
+		push ecx
+			mov edi,0
+			mov ecx,BoardWidth
+			L2:
+				push ecx
+				mov edx,0
+				invoke crt_rand
+				div colorType
+				mov (Piece PTR [esi+edi]).pcolor,edx
+				mov (Piece PTR [esi+edi]).psize,1
+				add edi,type Piece
+				pop ecx
+				loop L2
+			add esi,rowSize
+		pop ecx
+		loop L1
+
+	ret
+initPieces endp
 
 
 ;----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -47,22 +76,27 @@ initGame proc
 	push eax
 	mov eax,0
 	mov PageStatus,0
+	mov eax,type Cell
+	mul BoardWidth
+	mov rowSize,eax
 	pop eax
 	ret
 initGame endp
 
 startAGame proc
 	invoke initGame
-	mov player1.HP,800
-	mov player2.HP,800
-	mov ecx,12
+	invoke initPieces
+	mov eax,HPLimit
+	mov player1.HP,eax
+	mov player2.HP,eax
+	mov ecx,BoardWidth
 	mov eax,0
 	mov ebx,0
-	mov edx,12
+	mov edx,BoardWidth
 	mov esi,offset  Board
 	L1:
 		push ecx
-		mov ecx,12
+		mov ecx,BoardWidth
 		mov ebx,0
 		L2:
 			mov	(Cell PTR [esi]).x,eax
@@ -75,6 +109,7 @@ startAGame proc
 		loop L1
 	ret
 startAGame endp
+
 
 
 ;----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -95,6 +130,7 @@ pressAtStartPage endp
 lMouseInGame proc pos:POINT
 	LOCAL @posOnBoard:POINT
 	LOCAL @index:POINT
+	pushad
 	mov eax,pos.x
 	mov ebx,pos.y
 	.IF (eax<startX||eax>endX || ebx<startY || ebx>endY)
@@ -104,16 +140,18 @@ lMouseInGame proc pos:POINT
 	mov eax,pos.x
 	sub eax,startX
 	mov @posOnBoard.x,eax
-	mov ebx,70
+	mov ebx,CellSize
 	idiv ebx
 	mov edx, 0   ;
 	mov @index.x,eax
 	mov eax,pos.y
 	sub eax,startY
 	mov @posOnBoard.y,eax
-	mov ebx,70
+	mov ebx,CellSize
 	idiv ebx
 	mov @index.y,eax
+
+	popad
 	ret
 lMouseInGame endp
 
@@ -139,8 +177,6 @@ leftMouseHandler endp
 paintGrounds proc _hWnd,_hDC
 	LOCAL @OldPen
 	LOCAL @OldBrush
-
-	pushad
 	invoke  CreatePen,PS_SOLID,3,0ff0000H
 	invoke  SelectObject,_hDC,eax
 	mov @OldPen,eax
@@ -150,7 +186,7 @@ paintGrounds proc _hWnd,_hDC
 	mov eax,startX
 	mov ebx,startY
 	mov edx,CellSize
-	imul edx,BoardLength
+	imul edx,BoardWidth
 	add ebx,edx
 	L1:
 		pushad
@@ -167,7 +203,7 @@ paintGrounds proc _hWnd,_hDC
 	invoke  SelectObject,_hDC,eax
 	mov @OldPen,eax
 	
-	mov ecx,BoardLength
+	mov ecx,BoardWidth
 	inc ecx
 	mov eax,startX
 	mov edx,CellSize
@@ -185,7 +221,6 @@ paintGrounds proc _hWnd,_hDC
 		add ebx,CellSize
 		loop L2
 	invoke  SelectObject,_hDC,@OldPen
-	popad
 	ret
 paintGrounds endp
 
@@ -290,19 +325,69 @@ paintStartPage proc _hWnd,_hDC
 	invoke  SelectObject,_hDC,@OldBrush
 	invoke  MoveToEx,_hDC,0,0,NULL
 	invoke  LineTo,_hDC,WWidth,0
-	
 	ret
 paintStartPage endp
-	Paint proc _hWnd,_hDC
-	.IF PageStatus == 0
-		invoke paintStartPage,_hWnd,_hDC
-	.ELSEIF PageStatus == 1
-		invoke paintGrounds,_hWnd,_hDC
-		invoke paintPlayer,_hWnd,_hDC
-	.ENDIF
-	mov rePaintLabel,0
+
+paintCell proc _hWnd:DWORD,_hDC:DWORD,pos:Cell,color:DWORD
+	LOCAL @OldBrush
+	mov eax,color
+	imul eax,4
+	invoke  CreateSolidBrush,Colors[eax]
+	invoke  SelectObject,_hDC,eax
+	mov @OldBrush,eax
+	mov eax,pos.x
+	mov ebx,pos.y
+	add eax,startX
+	add ebx,startY
+	mov ecx,eax
+	mov edx,ebx
+	add ecx,CellSize
+	add edx,CellSize
+	add eax,5
+	add ebx,5
+	sub ecx,5
+	sub edx,5
+	invoke Ellipse,_hDC,eax,ebx,ecx,edx
+	invoke  SelectObject,_hDC,@OldBrush
 	ret
-	Paint endp
+paintCell endp
+
+paintPieces proc _hWnd:DWORD,_hDC:DWORD
+	mov ecx,BoardWidth
+	mov esi,offset pieces
+	mov edi,offset Board
+	L1:
+		push ecx
+		mov ecx,BoardWidth
+		L2:
+			push ecx
+			mov eax,(Piece PTR [esi]).pcolor
+			invoke paintCell,_hWnd,_hDC,Cell PTR [edi],eax
+			pop ecx
+			add edi,type Cell
+			add esi,type Piece
+			loop L2
+		pop ecx
+		loop L1
+	ret
+paintPieces endp
+
+paintSelected proc _hWnd:DWORD,_hDC:DWORD
+	ret
+paintSelected endp
+
+
+Paint proc _hWnd,_hDC
+.IF PageStatus == 0
+	invoke paintStartPage,_hWnd,_hDC
+.ELSEIF PageStatus == 1
+	invoke paintGrounds,_hWnd,_hDC
+	invoke paintPlayer,_hWnd,_hDC
+	invoke paintPieces,_hWnd,_hDC
+.ENDIF
+mov rePaintLabel,0
+ret
+Paint endp
 
 
 
