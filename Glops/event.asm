@@ -142,7 +142,7 @@ lMouseInGame proc pos:POINT
 	mov @posOnBoard.x,eax
 	mov ebx,CellSize
 	idiv ebx
-	mov edx, 0   ;
+	mov edx, 0;
 	mov @index.x,eax
 	mov eax,pos.y
 	sub eax,startY
@@ -151,15 +151,53 @@ lMouseInGame proc pos:POINT
 	idiv ebx
 	mov @index.y,eax
 
-	
-	mov CellSelected1.y,eax
-	mov eax,@index.x
-	mov CellSelected1.x,eax
-	
-	mov eax,@index.y
-	mul BoardWidth
-	add eax,@index.x
-
+	mov eax,BoardWidth
+	.IF CellSelected1.x >= eax 
+		mov eax,@index.y
+		mov CellSelected1.y,eax
+		mov eax,@index.x
+		mov CellSelected1.x,eax
+	.ELSE
+		mov eax,CellSelected1.x
+		mov ebx,CellSelected1.y
+		mov ecx,CellSelected1.y
+		inc ebx
+		dec ecx
+		.IF ((@index.x == eax) && (@index.y == ecx || @index.y == ebx))
+			mov eax,CellSelected1.x
+			mov CellSelected2.x,eax
+			mov eax,CellSelected1.y
+			mov CellSelected2.y,eax
+			mov eax,@index.y
+			mov CellSelected1.y,eax
+			mov eax,@index.x
+			mov CellSelected1.x,eax
+		.ELSE
+			mov eax,CellSelected1.x
+			mov ebx,CellSelected1.x
+			mov ecx,CellSelected1.y
+			inc eax
+			dec ebx
+			.IF ((@index.y == ecx) && (@index.x == eax || @index.x == ebx))
+				mov eax,CellSelected1.x
+				mov CellSelected2.x,eax
+				mov eax,CellSelected1.y
+				mov CellSelected2.y,eax
+				mov eax,@index.y
+				mov CellSelected1.y,eax
+				mov eax,@index.x
+				mov CellSelected1.x,eax
+			.ELSE
+				mov eax,@index.y
+				mov CellSelected1.y,eax
+				mov eax,@index.x
+				mov CellSelected1.x,eax
+				mov eax,BoardWidth
+				mov CellSelected2.x,eax
+				mov CellSelected2.y,eax
+			.ENDIF
+		.ENDIF
+	.ENDIF
 	popad
 	invoke Repaint
 	ret
@@ -348,11 +386,12 @@ paintCell proc _hWnd:DWORD,_hDC:DWORD,pos:Cell,color:DWORD
 	mov @color,eax
 	invoke  CreateSolidBrush,Colors[eax]
 	invoke  SelectObject,_hDC,eax
+	mov @OldBrush,eax
 	mov eax,@color
 	invoke  CreatePen,PS_SOLID,3,Colors[eax]
 	invoke  SelectObject,_hDC,eax
 	mov @OldPen,eax
-	mov @OldBrush,eax
+	
 	mov eax,pos.x
 	mov ebx,pos.y
 	add eax,startX
@@ -398,10 +437,10 @@ paintPieces proc _hWnd:DWORD,_hDC:DWORD
 paintPieces endp
 
 paintSelected proc _hWnd:DWORD,_hDC:DWORD
-	LOCAL @OldBrush
-	invoke  GetStockObject,BLACK_BRUSH
+	LOCAL @OldPen
+	invoke  CreatePen,PS_SOLID,3,0ff00ffH
 	invoke  SelectObject,_hDC,eax
-	mov @OldBrush,eax
+	mov @OldPen,eax
 	mov eax,BoardWidth
 	.IF CellSelected1.x<eax 
 		mov eax,CellSelected1.x
@@ -415,8 +454,25 @@ paintSelected proc _hWnd:DWORD,_hDC:DWORD
 		add ecx,CellSize
 		add edx,CellSize
 		invoke RoundRect,_hDC,eax,ebx,ecx,edx,20,20
+
+		invoke  CreatePen,PS_SOLID,3,000ffffH
+	invoke  SelectObject,_hDC,eax
+		mov eax,BoardWidth
+		.IF CellSelected2.x<eax 
+		mov eax,CellSelected2.x
+		mov ebx,CellSelected2.y
+		imul eax,CellSize
+		imul ebx,CellSize
+		add eax,startX
+		add ebx,startY
+		mov ecx,eax
+		mov edx,ebx
+		add ecx,CellSize
+		add edx,CellSize
+		invoke RoundRect,_hDC,eax,ebx,ecx,edx,20,20
+		.ENDIF
 	.ENDIF
-	invoke  SelectObject,_hDC,@OldBrush
+	invoke  SelectObject,_hDC,@OldPen
 	ret
 paintSelected endp
 
@@ -427,8 +483,9 @@ Paint proc _hWnd,_hDC
 .ELSEIF PageStatus == 1
 	invoke paintGrounds,_hWnd,_hDC
 	invoke paintPlayer,_hWnd,_hDC
-	invoke paintPieces,_hWnd,_hDC
 	invoke paintSelected,_hWnd,_hDC
+	invoke paintPieces,_hWnd,_hDC
+	
 .ENDIF
 mov rePaintLabel,0
 ret
