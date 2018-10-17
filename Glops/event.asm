@@ -151,7 +151,17 @@ lMouseInGame proc pos:POINT
 	idiv ebx
 	mov @index.y,eax
 
+	
+	mov CellSelected1.y,eax
+	mov eax,@index.x
+	mov CellSelected1.x,eax
+	
+	mov eax,@index.y
+	mul BoardWidth
+	add eax,@index.x
+
 	popad
+	invoke Repaint
 	ret
 lMouseInGame endp
 
@@ -177,7 +187,7 @@ leftMouseHandler endp
 paintGrounds proc _hWnd,_hDC
 	LOCAL @OldPen
 	LOCAL @OldBrush
-	invoke  CreatePen,PS_SOLID,3,0ff0000H
+	invoke  CreatePen,PS_SOLID,3,0DBDBDBH
 	invoke  SelectObject,_hDC,eax
 	mov @OldPen,eax
 	
@@ -199,7 +209,7 @@ paintGrounds proc _hWnd,_hDC
 		loop L1
 	invoke  SelectObject,_hDC,@OldPen
 
-	invoke  CreatePen,PS_SOLID,3,0ff0000H
+	invoke  CreatePen,PS_SOLID,3,0DBDBDBH
 	invoke  SelectObject,_hDC,eax
 	mov @OldPen,eax
 	
@@ -330,10 +340,18 @@ paintStartPage endp
 
 paintCell proc _hWnd:DWORD,_hDC:DWORD,pos:Cell,color:DWORD
 	LOCAL @OldBrush
+	LOCAL @OldPen
+	LOCAL @color
+	pushad
 	mov eax,color
 	imul eax,4
+	mov @color,eax
 	invoke  CreateSolidBrush,Colors[eax]
 	invoke  SelectObject,_hDC,eax
+	mov eax,@color
+	invoke  CreatePen,PS_SOLID,3,Colors[eax]
+	invoke  SelectObject,_hDC,eax
+	mov @OldPen,eax
 	mov @OldBrush,eax
 	mov eax,pos.x
 	mov ebx,pos.y
@@ -344,11 +362,18 @@ paintCell proc _hWnd:DWORD,_hDC:DWORD,pos:Cell,color:DWORD
 	add ecx,CellSize
 	add edx,CellSize
 	add eax,5
-	add ebx,5
+	add ebx,11
 	sub ecx,5
 	sub edx,5
-	invoke Ellipse,_hDC,eax,ebx,ecx,edx
+	pushad
+	invoke SetViewportOrgEx,_hDC, eax, ebx, NULL
+	invoke Polygon,_hDC, offset testRect,7
+	invoke SetViewportOrgEx,_hDC, 0, 0, NULL
+
 	invoke  SelectObject,_hDC,@OldBrush
+	invoke  SelectObject,_hDC,@OldPen
+	popad
+	popad
 	ret
 paintCell endp
 
@@ -373,6 +398,25 @@ paintPieces proc _hWnd:DWORD,_hDC:DWORD
 paintPieces endp
 
 paintSelected proc _hWnd:DWORD,_hDC:DWORD
+	LOCAL @OldBrush
+	invoke  GetStockObject,BLACK_BRUSH
+	invoke  SelectObject,_hDC,eax
+	mov @OldBrush,eax
+	mov eax,BoardWidth
+	.IF CellSelected1.x<eax 
+		mov eax,CellSelected1.x
+		mov ebx,CellSelected1.y
+		imul eax,CellSize
+		imul ebx,CellSize
+		add eax,startX
+		add ebx,startY
+		mov ecx,eax
+		mov edx,ebx
+		add ecx,CellSize
+		add edx,CellSize
+		invoke RoundRect,_hDC,eax,ebx,ecx,edx,20,20
+	.ENDIF
+	invoke  SelectObject,_hDC,@OldBrush
 	ret
 paintSelected endp
 
@@ -384,6 +428,7 @@ Paint proc _hWnd,_hDC
 	invoke paintGrounds,_hWnd,_hDC
 	invoke paintPlayer,_hWnd,_hDC
 	invoke paintPieces,_hWnd,_hDC
+	invoke paintSelected,_hWnd,_hDC
 .ENDIF
 mov rePaintLabel,0
 ret

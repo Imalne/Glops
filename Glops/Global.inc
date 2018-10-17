@@ -39,8 +39,8 @@ IFNDEF GLOBAL_INC
 				Board:Cell,
 				rowSize:DWORD,
 				pieces:Piece,
-				CellSelected1:Piece,
-				CellSelected2:Piece
+				CellSelected1:POINT,
+				CellSelected2:POINT
 
 ;----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ;常量
@@ -62,7 +62,7 @@ IFNDEF GLOBAL_INC
 	BoardWidth		DWORD		9
 	;BoardLength		DWORD		12
 	startX			DWORD		380
-	startY			DWORD		30
+	startY			DWORD		50
 	endX			DWORD		1220
 	endY			DWORD		870
 	HPLimit			DWORD		800
@@ -76,6 +76,7 @@ IFNDEF GLOBAL_INC
 	HPGap			DWORD		10
 	colorType		DWORD       6
 	Colors			DWORD		0EE3B3BH,0CD661DH,09F79EEH,09ACD32H,000EEEEH,0CD00CDH;红色，橙色，蓝色，绿色，黄色，紫色
+	testRect		POINT		<20,0>,<60,0>,<80,34>,<60,68>,<20,68>,<0,34>,<20,0>
 
 
 

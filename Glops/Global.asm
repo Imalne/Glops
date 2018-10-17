@@ -15,8 +15,8 @@ include Global.inc
 	BmpBackground	DWORD		?
 	rePaintLabel	DWORD		?
 	Board			Cell 144	DUP(<>)
-	CellSelected1	Piece		<>
-	CellSelected2	Piece		<>
+	CellSelected1	POINT		<12,12>
+	CellSelected2	POINT		<>
 	pieces			Piece 144	DUP(<>)
 
 	rowSize			DWORD		?
