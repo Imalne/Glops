@@ -16,16 +16,142 @@ include			Global.inc
 .code
 
 
+;----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+;工具函数
+;----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+getPiece proc res:DWORD,X:DWORD,Y:DWORD
+	pushad
+	mov esi,offset pieces
+	mov edi,res
+	mov eax,X
+	mov ebx,Y
+	imul eax,lineSize
+	imul ebx,type Piece
+	add eax,ebx
+	mov ecx,(Piece PTR [esi+eax]).pcolor
+	mov (Piece PTR [edi]).pcolor,ecx
+	mov ecx,(Piece PTR [esi+eax]).psize
+	mov (Piece PTR [edi]).psize,ecx
+	popad
+	ret
+getPiece endp
+
+setPiece proc X:DWORD,Y:DWORD,pcolor:DWORD,psize:DWORD
+	pushad
+	mov esi,offset pieces
+	mov eax,X
+	mov ebx,Y
+	imul eax,lineSize
+	imul ebx,type Piece
+	add eax,ebx
+	mov ecx,pcolor
+	mov (Piece PTR [esi+eax]).pcolor,ecx
+	mov ecx,psize
+	mov (Piece PTR [esi+eax]).psize,ecx
+	popad
+	ret
+setPiece endp
 
 ;----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ;逻辑更新
 ;----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 ;设置重绘标签
+resetSelect proc
+	push eax
+	mov eax,BoardWidth
+	mov CellSelected1.x,eax
+	mov CellSelected1.y,eax
+	mov CellSelected2.y,eax
+	mov CellSelected2.y,eax
+	pop eax
+	ret
+resetSelect endp
+
 Repaint proc
 	mov rePaintLabel,1
 	ret
 Repaint endp
+
+ExChange proc
+	mov exChangeLabel,1
+	ret
+ExChange endp
+
+ResetExChange proc
+	mov exChangeLabel,0
+	ret
+ResetExChange endp
+
+updatePieces proc
+	LOCAL @vlen:DWORD
+	LOCAL @hlen:DWORD
+	LOCAL @res:Piece
+	LOCAL @s1:Piece
+	LOCAL @s2:Piece
+	LOCAL @Start:POINT
+	LOCAL @End:POINT
+	LOCAL @Center:POINT
+	
+	mov @vlen,0
+	mov @hlen,0
+	
+	invoke getPiece,addr @s1,CellSelected1.x,CellSelected1.y
+	invoke getPiece,addr @s2,CellSelected2.x,CellSelected2.y
+
+	mov eax,CellSelected1.x
+	mov ebx,@s1.pcolor
+	.While eax >= 0
+		push eax
+		invoke getPiece,addr @res,eax,CellSelected1.y
+		pop eax
+		.IF @res.pcolor == ebx
+			inc @hlen
+		.ELSE
+			.break
+		.ENDIF
+		dec eax
+	.EndW
+
+	inc eax
+	mov @Start.x,eax
+	mov eax,CellSelected1.y
+	mov @Start.y,eax
+
+	mov eax,CellSelected1.x
+	inc eax
+	.While eax < BoardWidth
+		pushad
+		invoke getPiece,addr @res,eax,CellSelected1.y
+		popad
+		.IF @res.pcolor == ebx
+			inc @hlen
+		.ELSE
+			.break
+		.ENDIF
+		inc eax
+	.EndW
+	dec eax
+
+	.IF @hlen >= 3
+		mov edx,0
+		mov eax,@hlen
+		mov ebx,2
+		div ebx
+		add @Start.x,eax
+		invoke getPiece,addr @res,@Start.x,@Start.y
+		invoke setPiece,@Start.x,@Start.y,@res.pcolor,2
+		invoke ResetExChange
+		invoke resetSelect
+		ret
+	.ELSEIF
+		
+	.ENDIF
+updatePieces endp
+
+
+
+
 
 ;更新玩家信息
 updatePlayer proc
@@ -38,7 +164,10 @@ update proc
 	.IF PageStatus == 0											;在开始界面
 		ret
 	.ELSEIF PageStatus == 1										;在游戏界面
-		invoke updatePlayer										
+		invoke updatePlayer
+		.IF exChangeLabel == 1
+			invoke updatePieces
+		.ENDIF
 	.ENDIF
 	ret
 update endp
@@ -49,10 +178,15 @@ update endp
 
 ;生成整个棋盘
 initPieces proc
-	;invoke crt_srand
+	Local @index:POINT
+	invoke crt_srand
 	mov ecx,BoardWidth
 	mov esi,offset pieces
-	L1:
+	mov eax,esi
+	mov @index.x,0
+	mov @index.y,0
+
+	.WHILE ecx > 0																						;循环生成每一棋子（垃圾loop不能用）
 		push ecx
 			mov edi,0
 			mov ecx,BoardWidth
@@ -61,14 +195,44 @@ initPieces proc
 				mov edx,0
 				invoke crt_rand
 				div colorType
+				.IF @index.x>1																			;生成的棋子横向不能连着相同颜色三个以上
+					mov ebx,(Piece PTR [esi+edi-(type Piece)]).pcolor
+					.IF ebx == edx
+						mov ebx,(Piece PTR [esi+edi-(type Piece)*2]).pcolor
+						.IF ebx == edx
+							.IF edx < 5
+								inc edx
+							.ELSE
+								mov edx,0
+							.ENDIF
+						.ENDIF
+					.ENDIF
+				.ENDIF
+				.IF @index.y>1																			;生成的棋子竖向不能连着相同颜色三个以上
+					mov ebx,(Piece PTR [esi+edi-(type Piece)*9]).pcolor
+					.IF ebx == edx
+						mov ebx,(Piece PTR [esi+edi-(type Piece)*18]).pcolor
+						.IF ebx == edx
+							.IF edx < 5
+								inc edx
+							.ELSE
+								mov edx,0
+							.ENDIF
+						.ENDIF
+					.ENDIF
+				.ENDIF
+
 				mov (Piece PTR [esi+edi]).pcolor,edx
 				mov (Piece PTR [esi+edi]).psize,1
 				add edi,type Piece
+				inc @index.x
 				pop ecx
 				loop L2
 			add esi,rowSize
+			inc @index.y
 		pop ecx
-		loop L1
+		dec ecx
+		.ENDW
 
 	ret
 initPieces endp
@@ -84,6 +248,9 @@ initGame proc
 	mov eax,type Cell
 	mul BoardWidth
 	mov rowSize,eax
+	mov eax,type Piece
+	mul BoardWidth
+	mov lineSize,eax
 	pop eax
 	ret
 initGame endp
@@ -137,12 +304,16 @@ pressAtStartPage endp
 lMouseInGame proc pos:POINT
 	LOCAL @posOnBoard:POINT
 	LOCAL @index:POINT
+	LOCAL @got1:Piece
+	LOCAL @got2:Piece
 	pushad
 	mov eax,pos.x
 	mov ebx,pos.y
 	.IF (eax<startX||eax>endX || ebx<startY || ebx>endY)										;如果点击棋盘以外的位置
 		ret
 	.ENDIF
+
+
 	mov edx, 0   
 	mov eax,pos.x
 	sub eax,startX
@@ -158,6 +329,7 @@ lMouseInGame proc pos:POINT
 	idiv ebx
 	mov @index.y,eax
 
+	;invoke getPiece,@index.x,@index.y,addr @got
 	mov eax,BoardWidth
 	.IF CellSelected1.x >= eax 
 		mov eax,@index.y
@@ -167,6 +339,10 @@ lMouseInGame proc pos:POINT
 	.ELSE
 		mov eax,CellSelected1.x
 		mov ebx,CellSelected1.y
+		.IF (@index.x == eax)&&(@index.y == ebx)
+			ret
+		.ENDIF
+
 		mov ecx,CellSelected1.y
 		inc ebx
 		dec ecx
@@ -179,6 +355,13 @@ lMouseInGame proc pos:POINT
 			mov CellSelected1.y,eax
 			mov eax,@index.x
 			mov CellSelected1.x,eax
+			invoke getPiece,addr @got1,CellSelected1.x,CellSelected1.y
+			invoke getPiece,addr @got2,CellSelected2.x,CellSelected2.y
+			invoke setPiece,CellSelected1.x,CellSelected1.y,@got2.pcolor,@got2.psize
+			invoke setPiece,CellSelected2.x,CellSelected2.y,@got1.pcolor,@got1.psize
+			; resetSelect
+			invoke ExChange
+			invoke Repaint
 		.ELSE
 			mov eax,CellSelected1.x
 			mov ebx,CellSelected1.x
@@ -194,6 +377,13 @@ lMouseInGame proc pos:POINT
 				mov CellSelected1.y,eax
 				mov eax,@index.x
 				mov CellSelected1.x,eax
+				invoke getPiece,addr @got1,CellSelected1.x,CellSelected1.y
+				invoke getPiece,addr @got2,CellSelected2.x,CellSelected2.y
+				invoke setPiece,CellSelected1.x,CellSelected1.y,@got2.pcolor,@got2.psize
+				invoke setPiece,CellSelected2.x,CellSelected2.y,@got1.pcolor,@got1.psize
+				;invoke resetSelect
+				invoke ExChange
+				invoke Repaint
 			.ELSE
 				mov eax,@index.y
 				mov CellSelected1.y,eax
@@ -389,7 +579,7 @@ paintStartPage endp
 
 
 ;绘制单个棋子
-paintCell proc _hWnd:DWORD,_hDC:DWORD,pos:Cell,color:DWORD
+paintCell proc _hWnd:DWORD,_hDC:DWORD,pos:Cell,color:DWORD,_size:DWORD
 	LOCAL @OldBrush
 	LOCAL @OldPen
 	LOCAL @color
@@ -419,7 +609,11 @@ paintCell proc _hWnd:DWORD,_hDC:DWORD,pos:Cell,color:DWORD
 	sub edx,5
 	pushad
 	invoke SetViewportOrgEx,_hDC, eax, ebx, NULL
-	invoke Polygon,_hDC, offset testRect,7
+	.IF _size == 1
+		invoke Polygon,_hDC, offset testRect,7
+	.ELSEIF _size == 2
+		invoke Polygon,_hDC, offset testRectSM,5
+	.ENDIF
 	invoke SetViewportOrgEx,_hDC, 0, 0, NULL
 
 	invoke  SelectObject,_hDC,@OldBrush
@@ -441,7 +635,8 @@ paintPieces proc _hWnd:DWORD,_hDC:DWORD
 		L2:
 			push ecx
 			mov eax,(Piece PTR [esi]).pcolor
-			invoke paintCell,_hWnd,_hDC,Cell PTR [edi],eax
+			mov ebx,(Piece PTR [esi]).psize
+			invoke paintCell,_hWnd,_hDC,Cell PTR [edi],eax,ebx
 			pop ecx
 			add edi,type Cell
 			add esi,type Piece

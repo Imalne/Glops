@@ -38,8 +38,10 @@ IFNDEF GLOBAL_INC
 				GameStatus:DWORD,
 				BmpBackground:DWORD,
 				rePaintLabel:DWORD,
+				exChangeLabel:DWORD,
 				Board:Cell,
 				rowSize:DWORD,
+				lineSize:DWOrD,
 				pieces:Piece,
 				CellSelected1:POINT,
 				CellSelected2:POINT
@@ -74,8 +76,9 @@ IFNDEF GLOBAL_INC
 	HPStripWidth	DWORD		50																				;血条框宽度
 	HPGap			DWORD		10																				;血条与框的间隔
 	colorType		DWORD       6
-	Colors			DWORD		0EE3B3BH,0CD661DH,09F79EEH,09ACD32H,000EEEEH,0CD00CDH;红色，橙色，蓝色，绿色，黄色，紫色
+	Colors			DWORD		00000FFH,04071FFH,0FF0000H,00FF00H,000FFFFH,07400CDH;红色，橙色，蓝色，绿色，黄色，紫色
 	testRect		POINT		<20,0>,<60,0>,<80,34>,<60,68>,<20,68>,<0,34>,<20,0>								;单个棋子的六个顶点的相对位置
+	testRectSM		POINT		<20,20>,<60,20>,<60,60>,<20,60>,<20,20>								;单个棋子的六个顶点的相对位置
 
 
 
