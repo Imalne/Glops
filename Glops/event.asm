@@ -21,21 +21,24 @@ include			Global.inc
 ;逻辑更新
 ;----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
+;设置重绘标签
 Repaint proc
 	mov rePaintLabel,1
 	ret
 Repaint endp
 
+;更新玩家信息
 updatePlayer proc
 
 	ret
 updatePlayer endp
 
+;更行游戏数据
 update proc
-	.IF PageStatus == 0
+	.IF PageStatus == 0											;在开始界面
 		ret
-	.ELSEIF PageStatus == 1
-		invoke updatePlayer
+	.ELSEIF PageStatus == 1										;在游戏界面
+		invoke updatePlayer										
 	.ENDIF
 	ret
 update endp
@@ -43,6 +46,8 @@ update endp
 ;----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ;棋子生成
 ;----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+;生成整个棋盘
 initPieces proc
 	;invoke crt_srand
 	mov ecx,BoardWidth
@@ -83,6 +88,7 @@ initGame proc
 	ret
 initGame endp
 
+;初始化整个棋盘的棋子
 startAGame proc
 	invoke initGame
 	invoke initPieces
@@ -119,21 +125,22 @@ pressAtStartPage proc po:POINT
 	pushad
 		mov eax,po.x
 		mov ebx,po.y
-		.IF (eax>=StartBtnLT.x && eax<=StartBtnRB.x)&&(ebx>=StartBtnLT.y && ebx<=StartBtnRB.y)
-			mov PageStatus,1
+		.IF (eax>=StartBtnLT.x && eax<=StartBtnRB.x)&&(ebx>=StartBtnLT.y && ebx<=StartBtnRB.y)			;点击了开始游戏按钮
+			mov PageStatus,1																			;更改游戏状态为游戏状态
 			invoke Repaint
 		.ENDIF
 	popad
 	ret
 pressAtStartPage endp
 
+;游戏界面下的点击事件
 lMouseInGame proc pos:POINT
 	LOCAL @posOnBoard:POINT
 	LOCAL @index:POINT
 	pushad
 	mov eax,pos.x
 	mov ebx,pos.y
-	.IF (eax<startX||eax>endX || ebx<startY || ebx>endY)
+	.IF (eax<startX||eax>endX || ebx<startY || ebx>endY)										;如果点击棋盘以外的位置
 		ret
 	.ENDIF
 	mov edx, 0   
@@ -204,12 +211,13 @@ lMouseInGame proc pos:POINT
 lMouseInGame endp
 
 
+;根据游戏状态，处理左键点击
 leftMouseHandler proc
 	LOCAL	@stPos:POINT
 	LOCAL   @scrPos:RECT
 	LOCAL   @test:RECT
-	invoke GetCursorPos,addr @stPos
-	invoke ScreenToClient,hWinMain,addr @stPos
+	invoke GetCursorPos,addr @stPos											;左键点击的屏幕位子
+	invoke ScreenToClient,hWinMain,addr @stPos								;
 	.IF PageStatus == 0
 		invoke pressAtStartPage,@stPos
 	.ELSEIF PageStatus == 1
@@ -222,6 +230,7 @@ leftMouseHandler endp
 ;----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ;绘图
 ;----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+;绘制棋盘
 paintGrounds proc _hWnd,_hDC
 	LOCAL @OldPen
 	LOCAL @OldBrush
@@ -272,6 +281,8 @@ paintGrounds proc _hWnd,_hDC
 	ret
 paintGrounds endp
 
+
+;绘制血条
 paintHP proc  _hWnd,_hDC
 	LOCAL @OldBrush
 	LOCAL @OldPen
@@ -279,7 +290,7 @@ paintHP proc  _hWnd,_hDC
 	ret
 paintHP endp
 
-
+;绘制玩家信息
 paintPlayer proc _hWnd,_hDC
 	LOCAL @OldBrush
 	LOCAL @OldPen
@@ -361,7 +372,7 @@ paintPlayer endp
 
 
 
-
+;绘制开始界面，按钮
 paintStartPage proc _hWnd,_hDC
 	LOCAL @OldBrush
 	invoke  GetStockObject,BLACK_BRUSH
@@ -376,6 +387,8 @@ paintStartPage proc _hWnd,_hDC
 	ret
 paintStartPage endp
 
+
+;绘制单个棋子
 paintCell proc _hWnd:DWORD,_hDC:DWORD,pos:Cell,color:DWORD
 	LOCAL @OldBrush
 	LOCAL @OldPen
@@ -416,6 +429,8 @@ paintCell proc _hWnd:DWORD,_hDC:DWORD,pos:Cell,color:DWORD
 	ret
 paintCell endp
 
+
+;绘制所有棋子
 paintPieces proc _hWnd:DWORD,_hDC:DWORD
 	mov ecx,BoardWidth
 	mov esi,offset pieces
@@ -436,13 +451,15 @@ paintPieces proc _hWnd:DWORD,_hDC:DWORD
 	ret
 paintPieces endp
 
+
+;绘制选中单元格
 paintSelected proc _hWnd:DWORD,_hDC:DWORD
 	LOCAL @OldPen
 	invoke  CreatePen,PS_SOLID,3,0ff00ffH
 	invoke  SelectObject,_hDC,eax
 	mov @OldPen,eax
 	mov eax,BoardWidth
-	.IF CellSelected1.x<eax 
+	.IF CellSelected1.x<eax												;存在选中单元格
 		mov eax,CellSelected1.x
 		mov ebx,CellSelected1.y
 		imul eax,CellSize
@@ -456,9 +473,10 @@ paintSelected proc _hWnd:DWORD,_hDC:DWORD
 		invoke RoundRect,_hDC,eax,ebx,ecx,edx,20,20
 
 		invoke  CreatePen,PS_SOLID,3,000ffffH
-	invoke  SelectObject,_hDC,eax
+		invoke  SelectObject,_hDC,eax
 		mov eax,BoardWidth
-		.IF CellSelected2.x<eax 
+		
+		.IF CellSelected2.x<eax											;存在两个选中格
 		mov eax,CellSelected2.x
 		mov ebx,CellSelected2.y
 		imul eax,CellSize

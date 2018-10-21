@@ -6,16 +6,18 @@ IFNDEF GLOBAL_INC
 ;----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ;结构体定义
 ;----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	
+	;玩家
 	Player STRUCT
 	HP		DWORD	?
 	Player ENDS
 
+	;棋盘上的棋子位置
 	Cell STRUCT
 		x DWORD	?
 		y DWORD ?
 	Cell ENDS
 
+	;逻辑棋子
 	Piece STRUCT
 		pcolor	DWORD ?
 		psize	DWORD ?
@@ -47,36 +49,33 @@ IFNDEF GLOBAL_INC
 ;----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 	.data
-	szClassName     Byte		'Game',0
-	repaintFreq     DWORD		17
-	WWidth			DWORD		1620
-	WHeight			DWORD		1000
-	GroundHeight1	DWORD		600
-	GroundHeight2	DWORD		300
-	Gravity			DWORD		2
-	StartBtnLT		POINT		<390,400>
-	StartBtnRB		POINT		<690,450>
-	StartBtnRect	RECT		<390,400,690,450>
-	StartStr		Byte		"Start Game",0
-	CellSize		DWORD		90
-	BoardWidth		DWORD		9
+	szClassName     Byte		'Glops',0																		;窗口名
+	repaintFreq     DWORD		17																				
+	WWidth			DWORD		1620																			;窗口宽度
+	WHeight			DWORD		1000																			;窗口宽度
+	StartBtnLT		POINT		<390,400>																		;开始按钮左上角
+	StartBtnRB		POINT		<690,450>																		;开始按钮右下角
+	StartBtnRect	RECT		<390,400,690,450>																;开始按钮区域
+	StartStr		Byte		"Start Game",0																	;按钮文字
+	CellSize		DWORD		90																				;单元格大小
+	BoardWidth		DWORD		9																				;棋盘单行或单列上单元格的数量
 	;BoardLength		DWORD		12
-	startX			DWORD		380
+	startX			DWORD		380																				;棋盘左上角坐标
 	startY			DWORD		50
-	endX			DWORD		1220
+	endX			DWORD		1220																			;窗口右下角坐标
 	endY			DWORD		870
-	HPLimit			DWORD		800
-	P1IconPos		POINT		<0,0>
-	P2IconPos		POINT		<1530,0>
-	P1HPStripPos	POINT		<0,90>
-	P2HPStripPos	POINT		<1550,90>
-	IconSize		DWORD		70
-	HPStripLength	DWORD		800
-	HPStripWidth	DWORD		50
-	HPGap			DWORD		10
+	HPLimit			DWORD		800																				;HP上线
+	P1IconPos		POINT		<0,0>																			;玩家一头像左上角
+	P2IconPos		POINT		<1530,0>																		;玩家二头像左上角
+	P1HPStripPos	POINT		<0,90>																			;玩家一血条左上角
+	P2HPStripPos	POINT		<1550,90>																		;玩家二血条左上角
+	IconSize		DWORD		70																				;玩家头像大小
+	HPStripLength	DWORD		800																				;血条框长度
+	HPStripWidth	DWORD		50																				;血条框宽度
+	HPGap			DWORD		10																				;血条与框的间隔
 	colorType		DWORD       6
 	Colors			DWORD		0EE3B3BH,0CD661DH,09F79EEH,09ACD32H,000EEEEH,0CD00CDH;红色，橙色，蓝色，绿色，黄色，紫色
-	testRect		POINT		<20,0>,<60,0>,<80,34>,<60,68>,<20,68>,<0,34>,<20,0>
+	testRect		POINT		<20,0>,<60,0>,<80,34>,<60,68>,<20,68>,<0,34>,<20,0>								;单个棋子的六个顶点的相对位置
 
 
 
