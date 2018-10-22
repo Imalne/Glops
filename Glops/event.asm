@@ -83,7 +83,7 @@ ResetExChange proc
 	ret
 ResetExChange endp
 
-updatePieces proc
+checkPiece proc  X:DWORD,Y:DWORD,toUpdate:DWORD
 	LOCAL @vlen:DWORD
 	LOCAL @hlen:DWORD
 	LOCAL @res:Piece
@@ -92,18 +92,17 @@ updatePieces proc
 	LOCAL @Start:POINT
 	LOCAL @End:POINT
 	LOCAL @Center:POINT
-	
+
 	mov @vlen,0
 	mov @hlen,0
 	
-	invoke getPiece,addr @s1,CellSelected1.x,CellSelected1.y
-	invoke getPiece,addr @s2,CellSelected2.x,CellSelected2.y
+	invoke getPiece,addr @s1,X,Y
 
-	mov eax,CellSelected1.x
+	mov eax,X
 	mov ebx,@s1.pcolor
 	.While eax >= 0
 		push eax
-		invoke getPiece,addr @res,eax,CellSelected1.y
+		invoke getPiece,addr @res,eax,Y
 		pop eax
 		.IF @res.pcolor == ebx
 			inc @hlen
@@ -115,14 +114,14 @@ updatePieces proc
 
 	inc eax
 	mov @Start.x,eax
-	mov eax,CellSelected1.y
+	mov eax,Y
 	mov @Start.y,eax
 
-	mov eax,CellSelected1.x
+	mov eax,X
 	inc eax
 	.While eax < BoardWidth
 		pushad
-		invoke getPiece,addr @res,eax,CellSelected1.y
+		invoke getPiece,addr @res,eax,Y
 		popad
 		.IF @res.pcolor == ebx
 			inc @hlen
@@ -141,12 +140,83 @@ updatePieces proc
 		add @Start.x,eax
 		invoke getPiece,addr @res,@Start.x,@Start.y
 		invoke setPiece,@Start.x,@Start.y,@res.pcolor,2
+		mov esi,toUpdate
+		;mov ebx,1
+		;mov [esi],ebx
 		invoke ResetExChange
 		invoke resetSelect
 		ret
 	.ELSEIF
-		
+		mov eax,Y
+		mov ebx,@s1.pcolor
+		.While eax >= 0
+			push eax
+			invoke getPiece,addr @res,X,eax
+			pop eax
+			.IF @res.pcolor == ebx
+				inc @vlen
+			.ELSE
+				.break
+			.ENDIF
+			dec eax
+		.EndW
+
+		inc eax
+		mov @Start.y,eax
+		mov eax,X
+		mov @Start.x,eax
+
+		mov eax,Y
+		inc eax
+		.While eax < BoardWidth
+			pushad
+			invoke getPiece,addr @res,X,eax
+			popad
+			.IF @res.pcolor == ebx
+				inc @vlen
+			.ELSE
+				.break
+			.ENDIF
+			inc eax
+		.EndW
+		dec eax
+
+		.IF @vlen >= 3
+			mov edx,0
+			mov eax,@vlen
+			mov ebx,2
+			div ebx
+			add @Start.y,eax
+			invoke getPiece,addr @res,@Start.x,@Start.y
+			invoke setPiece,@Start.x,@Start.y,@res.pcolor,2
+			mov esi,toUpdate
+			;mov ebx,1
+			;mov [esi],ebx
+			invoke ResetExChange
+			invoke resetSelect
+			ret
+		.ENDIF
 	.ENDIF
+	ret
+checkPiece endp
+
+
+updatePieces proc
+	LOCAL @vlen:DWORD
+	LOCAL @hlen:DWORD
+	LOCAL @res:Piece
+	LOCAL @s1:Piece
+	LOCAL @s2:Piece
+	LOCAL @Start:POINT
+	LOCAL @End:POINT
+	LOCAL @Center:POINT
+	LOCAL @toUpdate:DWORD
+	invoke checkPiece,CellSelected1.x,CellSelected1.y,addr @toUpdate
+	invoke checkPiece,CellSelected2.x,CellSelected2.y,addr @toUpdate
+	
+	
+		
+	ret
 updatePieces endp
 
 
