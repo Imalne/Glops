@@ -246,7 +246,6 @@ cleanPieces proc _Start:POINT,_End:POINT
 		.While eax<=ebx
 			invoke setPiece,_Start.x,eax,0,0
 			inc eax
-
 		.EndW
 	.ELSEIF
 		.While eax<=ebx
@@ -260,8 +259,6 @@ cleanPieces endp
 
 movPiece proc _Center:POINT,_Start:POINT,_End:POINT
 	LOCAL @res:Piece
-	LOCAL @BCenter
-	LOCAL @ACenter
 
 	invoke getPiece,addr @res,_Center.x,_Center.y
 	invoke cleanPieces,_Start,_End
@@ -275,110 +272,101 @@ movPiece proc _Center:POINT,_Start:POINT,_End:POINT
 		mov ebx,_End.y
 		sub ebx,_Center.y
 		
-
 		mov ecx,_Start.y
-		.If ecx >0
-			dec ecx
-		.EndIF
-		.While ecx >= 0
+		.WHILE ecx>=0
 			pushad
-			push eax
-			invoke getPiece,addr @res,_Start.x,ecx
-			pop eax
-			add ecx,eax
-			push eax
-			.IF ecx < _Center.y
-				invoke setPiece,_Start.x,ecx,@res.pcolor,@res.psize
-			.ENDIF
-			pop eax
-			sub ecx,eax
-			push eax
-			invoke setPiece,_Start.x,ecx,@res.pcolor,0
-			pop eax
+				push eax
+				invoke getPiece,addr @res,_Start.x,ecx
+				pop eax
+				add ecx,eax
+				push eax
+				.IF ecx < _Center.y
+						invoke setPiece,_Start.x,ecx,@res.pcolor,@res.psize
+				.ENDIF
+				pop eax
+				sub ecx,eax
+				push eax
+				invoke setPiece,_Start.x,ecx,@res.pcolor,0
+				pop eax
 			popad
+
 			.IF ecx == 0
 				.break
 			.ENDIF
 			dec ecx
-		.EndW
+		.ENDW
+
+
 		mov ecx,_End.y
-		inc ecx
-		.IF ecx == BoardWidth
-			dec ecx
-		.ENDIF
-		.While ecx< BoardWidth
+		.WHILE ecx<BoardWidth
 			pushad
-			push eax
-			invoke getPiece,addr @res,_Start.x,ecx
-			pop eax
-			sub ecx,ebx
-			push eax
-			.IF ecx > _Center.y
-			invoke setPiece,_Start.x,ecx,@res.pcolor,@res.psize
-			.ENDIF
-			pop eax
-			add ecx,ebx
-			push eax
-			invoke setPiece,_Start.x,ecx,@res.pcolor,0
-			pop eax
+				push eax
+				invoke getPiece,addr @res,_Start.x,ecx
+				pop eax
+				sub ecx,ebx
+				push eax
+					.IF ecx > _Center.y
+						invoke setPiece,_Start.x,ecx,@res.pcolor,@res.psize
+				.ENDIF
+				pop eax
+				add ecx,ebx
+				push eax
+					invoke setPiece,_Start.x,ecx,@res.pcolor,0
+				pop eax
 			popad
 			inc ecx
 		.EndW
-	.ELSE
+	.ELSEIF
 		mov eax,_Center.x
 		sub eax,_Start.x
 		mov ebx,_End.x
 		sub ebx,_Center.x
-		
+
 		mov ecx,_Start.x
-		.If ecx >0
-			dec ecx
-		.EndIF
-		.While ecx >= 0
+		.While ecx >=0
 			pushad
-			push eax
-			invoke getPiece,addr @res,ecx,_Start.y
-			pop eax
-			add ecx,eax
-			push eax
-			.IF ecx < _Center.x
-				invoke setPiece,ecx,_Start.y,@res.pcolor,@res.psize
-			.ENDIF
-			pop eax
-			sub ecx,eax
-			push eax
-			invoke setPiece,ecx,_Start.y,@res.pcolor,0
-			pop eax
+				push eax
+				invoke getPiece,addr @res,ecx,_Start.y
+				pop eax
+				add ecx,eax
+				push eax
+				.IF ecx < _Center.x
+						invoke setPiece,ecx,_Start.y,@res.pcolor,@res.psize
+				.ENDIF
+				pop eax
+				sub ecx,eax
+				push eax
+				invoke setPiece,ecx,_Start.y,@res.pcolor,0
+				pop eax
 			popad
+
 			.IF ecx == 0
 				.break
 			.ENDIF
 			dec ecx
-		.EndW
+		.ENDW
+
 		mov ecx,_End.x
-		inc ecx
-		.IF ecx == BoardWidth
-			dec ecx
-		.ENDIF
-		.While ecx< BoardWidth
+		.While ecx<BoardWidth
 			pushad
-			push eax
-			invoke getPiece,addr @res,ecx,_Start.y
-			pop eax
-			sub ecx,ebx
-			push eax
-			.IF ecx > _Center.x
-			invoke setPiece,ecx,_Start.y,@res.pcolor,@res.psize
-			.ENDIF
-			pop eax
-			add ecx,ebx
-			push eax
-			invoke setPiece,ecx,_Start.y,@res.pcolor,0
-			pop eax
+				push eax
+				invoke getPiece,addr @res,ecx,_Start.y
+				pop eax
+				sub ecx,eax
+				push eax
+				.IF ecx > _Center.x
+						invoke setPiece,ecx,_Start.y,@res.pcolor,@res.psize
+				.ENDIF
+				pop eax
+				add ecx,eax
+				push eax
+				invoke setPiece,ecx,_Start.y,@res.pcolor,0
+				pop eax
 			popad
 			inc ecx
-		.EndW
-	.ENDIF
+		.ENDW
+		
+	.EndIF
 	ret
 movPiece endp
 
