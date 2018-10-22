@@ -83,7 +83,7 @@ ResetExChange proc
 	ret
 ResetExChange endp
 
-checkPiece proc  X:DWORD,Y:DWORD,toUpdate:DWORD
+checkPiece proc  X:DWORD,Y:DWORD,toUpdate:DWORD,center:DWORD,_Start:DWORd,_End:DWord
 	LOCAL @vlen:DWORD
 	LOCAL @hlen:DWORD
 	LOCAL @res:Piece
@@ -92,6 +92,10 @@ checkPiece proc  X:DWORD,Y:DWORD,toUpdate:DWORD
 	LOCAL @Start:POINT
 	LOCAL @End:POINT
 	LOCAL @Center:POINT
+
+	mov esi,toUpdate
+	mov ebx,0
+	mov [esi],ebx
 
 	mov @vlen,0
 	mov @hlen,0
@@ -109,6 +113,10 @@ checkPiece proc  X:DWORD,Y:DWORD,toUpdate:DWORD
 		.ELSE
 			.break
 		.ENDIF
+		.IF eax == 0
+			dec eax
+			.break
+		.ENDIF
 		dec eax
 	.EndW
 
@@ -116,6 +124,11 @@ checkPiece proc  X:DWORD,Y:DWORD,toUpdate:DWORD
 	mov @Start.x,eax
 	mov eax,Y
 	mov @Start.y,eax
+
+	mov esi,_Start
+	mov (POINT PTR [esi]).y,eax
+	mov eax,@Start.x
+	mov (POINT PTR [esi]).x,eax
 
 	mov eax,X
 	inc eax
@@ -132,19 +145,26 @@ checkPiece proc  X:DWORD,Y:DWORD,toUpdate:DWORD
 	.EndW
 	dec eax
 
+	mov esi,_End
+	mov (POINT PTR [esi]).x,eax
+	mov eax,@Start.y
+	mov (POINT PTR [esi]).y,eax
+
 	.IF @hlen >= 3
 		mov edx,0
 		mov eax,@hlen
 		mov ebx,2
 		div ebx
 		add @Start.x,eax
-		invoke getPiece,addr @res,@Start.x,@Start.y
-		invoke setPiece,@Start.x,@Start.y,@res.pcolor,2
 		mov esi,toUpdate
-		;mov ebx,1
-		;mov [esi],ebx
-		invoke ResetExChange
-		invoke resetSelect
+		mov ebx,1
+		mov [esi],ebx
+		mov esi,center
+		mov eax,@Start.x
+		mov (POINT PTR [esi]).x,eax
+		mov eax,@Start.y
+		mov (POINT PTR [esi]).y,eax
+		
 		ret
 	.ELSEIF
 		mov eax,Y
@@ -153,9 +173,13 @@ checkPiece proc  X:DWORD,Y:DWORD,toUpdate:DWORD
 			push eax
 			invoke getPiece,addr @res,X,eax
 			pop eax
-			.IF @res.pcolor == ebx
+			.IF @res.pcolor == ebx && @res.psize >= 1
 				inc @vlen
 			.ELSE
+				.break
+			.ENDIF
+			.IF eax == 0
+				dec eax
 				.break
 			.ENDIF
 			dec eax
@@ -166,13 +190,18 @@ checkPiece proc  X:DWORD,Y:DWORD,toUpdate:DWORD
 		mov eax,X
 		mov @Start.x,eax
 
+		mov esi,_Start
+		mov (POINT PTR [esi]).x,eax
+		mov eax,@Start.y
+		mov (POINT PTR [esi]).y,eax
+
 		mov eax,Y
 		inc eax
 		.While eax < BoardWidth
 			pushad
 			invoke getPiece,addr @res,X,eax
 			popad
-			.IF @res.pcolor == ebx
+			.IF @res.pcolor == ebx && @res.psize >= 1
 				inc @vlen
 			.ELSE
 				.break
@@ -181,25 +210,177 @@ checkPiece proc  X:DWORD,Y:DWORD,toUpdate:DWORD
 		.EndW
 		dec eax
 
+		mov esi,_End
+		mov (POINT PTR [esi]).y,eax
+		mov eax,@Start.x
+		mov (POINT PTR [esi]).x,eax
+
 		.IF @vlen >= 3
 			mov edx,0
 			mov eax,@vlen
 			mov ebx,2
 			div ebx
 			add @Start.y,eax
-			invoke getPiece,addr @res,@Start.x,@Start.y
-			invoke setPiece,@Start.x,@Start.y,@res.pcolor,2
+			
 			mov esi,toUpdate
-			;mov ebx,1
-			;mov [esi],ebx
-			invoke ResetExChange
-			invoke resetSelect
+			mov ebx,1
+			mov [esi],ebx
+			mov esi,center
+			mov eax,@Start.x
+			mov (POINT PTR [esi]).x,eax
+			mov eax,@Start.y
+			mov (POINT PTR [esi]).y,eax
+			
 			ret
 		.ENDIF
 	.ENDIF
 	ret
 checkPiece endp
 
+cleanPieces proc _Start:POINT,_End:POINT
+	mov eax,_Start.x
+	mov ebx,_End.x
+	.IF eax == ebx
+		mov eax,_Start.y
+		mov ebx,_End.y
+		.While eax<=ebx
+			invoke setPiece,_Start.x,eax,0,0
+			inc eax
+
+		.EndW
+	.ELSEIF
+		.While eax<=ebx
+			invoke setPiece,eax,_Start.y,0,0
+			inc eax
+		.EndW
+	.ENDIF
+	ret
+cleanPieces endp
+
+
+movPiece proc _Center:POINT,_Start:POINT,_End:POINT
+	LOCAL @res:Piece
+	LOCAL @BCenter
+	LOCAL @ACenter
+
+	invoke getPiece,addr @res,_Center.x,_Center.y
+	invoke cleanPieces,_Start,_End
+	invoke setPiece,_Center.x,_Center.y,@res.pcolor,@res.psize
+
+	mov eax,_Start.x
+	mov ebx,_End.x
+	.IF eax == ebx
+		mov eax,_Center.y
+		sub eax,_Start.y
+		mov ebx,_End.y
+		sub ebx,_Center.y
+		
+
+		mov ecx,_Start.y
+		.If ecx >0
+			dec ecx
+		.EndIF
+		.While ecx >= 0
+			pushad
+			push eax
+			invoke getPiece,addr @res,_Start.x,ecx
+			pop eax
+			add ecx,eax
+			push eax
+			.IF ecx < _Center.y
+				invoke setPiece,_Start.x,ecx,@res.pcolor,@res.psize
+			.ENDIF
+			pop eax
+			sub ecx,eax
+			push eax
+			invoke setPiece,_Start.x,ecx,@res.pcolor,0
+			pop eax
+			popad
+			.IF ecx == 0
+				.break
+			.ENDIF
+			dec ecx
+		.EndW
+		mov ecx,_End.y
+		inc ecx
+		.IF ecx == BoardWidth
+			dec ecx
+		.ENDIF
+		.While ecx< BoardWidth
+			pushad
+			push eax
+			invoke getPiece,addr @res,_Start.x,ecx
+			pop eax
+			sub ecx,ebx
+			push eax
+			.IF ecx > _Center.y
+			invoke setPiece,_Start.x,ecx,@res.pcolor,@res.psize
+			.ENDIF
+			pop eax
+			add ecx,ebx
+			push eax
+			invoke setPiece,_Start.x,ecx,@res.pcolor,0
+			pop eax
+			popad
+			inc ecx
+		.EndW
+	.ELSE
+		mov eax,_Center.x
+		sub eax,_Start.x
+		mov ebx,_End.x
+		sub ebx,_Center.x
+		
+		mov ecx,_Start.x
+		.If ecx >0
+			dec ecx
+		.EndIF
+		.While ecx >= 0
+			pushad
+			push eax
+			invoke getPiece,addr @res,ecx,_Start.y
+			pop eax
+			add ecx,eax
+			push eax
+			.IF ecx < _Center.x
+				invoke setPiece,ecx,_Start.y,@res.pcolor,@res.psize
+			.ENDIF
+			pop eax
+			sub ecx,eax
+			push eax
+			invoke setPiece,ecx,_Start.y,@res.pcolor,0
+			pop eax
+			popad
+			.IF ecx == 0
+				.break
+			.ENDIF
+			dec ecx
+		.EndW
+		mov ecx,_End.x
+		inc ecx
+		.IF ecx == BoardWidth
+			dec ecx
+		.ENDIF
+		.While ecx< BoardWidth
+			pushad
+			push eax
+			invoke getPiece,addr @res,ecx,_Start.y
+			pop eax
+			sub ecx,ebx
+			push eax
+			.IF ecx > _Center.x
+			invoke setPiece,ecx,_Start.y,@res.pcolor,@res.psize
+			.ENDIF
+			pop eax
+			add ecx,ebx
+			push eax
+			invoke setPiece,ecx,_Start.y,@res.pcolor,0
+			pop eax
+			popad
+			inc ecx
+		.EndW
+	.ENDIF
+	ret
+movPiece endp
 
 updatePieces proc
 	LOCAL @vlen:DWORD
@@ -211,12 +392,21 @@ updatePieces proc
 	LOCAL @End:POINT
 	LOCAL @Center:POINT
 	LOCAL @toUpdate:DWORD
-	invoke checkPiece,CellSelected1.x,CellSelected1.y,addr @toUpdate
-	invoke checkPiece,CellSelected2.x,CellSelected2.y,addr @toUpdate
-	
-	
-		
-	ret
+	invoke checkPiece,CellSelected1.x,CellSelected1.y,addr @toUpdate,addr @Center,addr @Start,addr @End
+	.IF @toUpdate == 1
+		invoke getPiece,addr @res,@Center.x,@Center.y
+		invoke setPiece,@Center.x,@Center.y,@res.pcolor,2
+		invoke movPiece,@Center,@Start,@End
+	.ENDIF
+	invoke checkPiece,CellSelected2.x,CellSelected2.y,addr @toUpdate,addr @Center,addr @Start,addr @End
+	.IF @toUpdate == 1
+		invoke getPiece,addr @res,@Center.x,@Center.y
+		invoke setPiece,@Center.x,@Center.y,@res.pcolor,2
+		invoke movPiece,@Center,@Start,@End
+	.ENDIF
+	invoke ResetExChange
+	invoke resetSelect
+ 	ret
 updatePieces endp
 
 
