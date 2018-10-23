@@ -17,7 +17,7 @@ include			Global.inc
 
 
 ;----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-;¹¤¾ßº¯Êı
+;å·¥å…·å‡½æ•°
 ;----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 getPiece proc res:DWORD,X:DWORD,Y:DWORD
 	pushad
@@ -52,11 +52,27 @@ setPiece proc X:DWORD,Y:DWORD,pcolor:DWORD,psize:DWORD
 	ret
 setPiece endp
 
+getNearbyPiece proc USES ecx piecePtr:DWORD, X:DWORD, Y:DWORD, offsetX:DWORD, offsetY:DWORD
+	LOCAL @x
+	LOCAL @y
+	mov @x, X 
+	mov @y, Y
+	mov ecx, BoardWidth 
+	add @x, offsetX
+	add @y, offsetY
+	.IF @x >= 0 && @y >=0 && @x < ecx && @y < ecx
+		invoke getPiece, piecePtr, @x, @y
+	.ELSE
+		(Piece PTR piecePtr).psize = 0
+		(Piece PTR piecePtr).pcolor = 0
+	.ENDIF
+getNearbyPiece endp
+
 ;----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-;Âß¼­¸üĞÂ
+;é€»è¾‘æ›´æ–°
 ;----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-;ÉèÖÃÖØ»æ±êÇ©
+;è®¾ç½®é‡ç»˜æ ‡ç­¾
 resetSelect proc
 	push eax
 	mov eax,BoardWidth
@@ -499,7 +515,7 @@ _detonate Proc proc X:DWORD,Y:DWORD
 	.ENDIF
 	dec ebx
 
-	;×óÉÏ
+	;å·¦ä¸Š
 	.IF eax!=0 && ebx != 0 
 		dec eax
 		dec ebx
@@ -522,7 +538,7 @@ _detonate Proc proc X:DWORD,Y:DWORD
 		inc eax
 	.ENDIF
 
-	;ÓÒÉÏ
+	;å³ä¸Š
 	inc eax
 	.IF eax<BoardWidth && ebx != 0
 		dec ebx
@@ -547,7 +563,7 @@ _detonate Proc proc X:DWORD,Y:DWORD
 	dec eax
 
 
-	;ÓÒÏÂ
+	;å³ä¸‹
 	inc eax
 	inc ebx
 	.IF eax<BoardWidth && ebx <BoardWidth
@@ -570,7 +586,7 @@ _detonate Proc proc X:DWORD,Y:DWORD
 	dec ebx
 	dec eax
 
-	;×óÏÂ
+	;å·¦ä¸‹
 	inc ebx
 	.IF eax != 0 && ebx <BoardWidth
 		dec eax
@@ -657,21 +673,174 @@ updatePieces proc
  	ret
 updatePieces endp
 
+generateNewPieces proc USES ecx
+	;éå†ä½¿ç”¨
+	LOCAL @singlePiece:Piece
+	LOCAL @x
+	LOCAL @y
+	mov ecx, BoardWidth
+
+	;æ£€æŸ¥å…¨å±€è§£
+	invoke hasSolution    
+
+	;å¦‚æœå­˜åœ¨å…¨å±€è§£
+	.IF eax == 1          
+		mov @x, 0
+		.WHILE @x < ecx
+			mov @y, 0
+			.WHILE @y < ecx
+				invoke getPiece, addr @singlePiece, @x, @y   
+				.IF (Piece PTR @singlePiece).psize == 0
+					invoke crt_rand
+					div colorType
+					mov (Piece PTR @singlePiece).pcolor, edx
+					mov (Piece PTR @singlePiece).psize, 1
+				.ENDIF
+				inc @y
+			.ENDW
+			inc @x
+		.ENDW
+
+	;å¦‚æœä¸å­˜åœ¨å…¨å±€è§£
+	.ELSE
+		;TO DO
+	.ENDIF
+generateNewPiece endp
+
+hasSolution proc USES esi ebx ecx
+	mov esi, pieces
+	mov eax, 0
+	mov ecx, BoardWidth
+
+	LOCAL @leftTop:Piece
+	LOCAL @leftBottom:Piece
+	LOCAL @rightTop:Piece
+	LOCAL @rightBottom:Piece
+	LOCAL @x:DWORD
+	LOCAL @y:DWORD
+
+	;è€ƒå¯Ÿå•ä¸ªæ£‹å­ä¸å…¶å››ä¸ªè§’çš„æ£‹å­
+	LOCAL @centerPiece:Piece
+
+	mov @x, 0
+	.WHILE @x < ecx
+		mov @y, 0
+		.WHILE @y < ecx
+			invoke getPiece, addr @centerPiece, @x, @y
+			invoke getNearbyPiece, addr @leftTop, @x, @y, -1, -1
+			invoke getNearbyPiece, addr @leftBottom, @x, @y, -1, 1
+			invoke getNearbyPiece, addr @rightTop, @x, @y, 1, -1
+			invoke getNearbyPiece, addr @rightBottom, @x, @y, 1, 1
+
+			;åˆ¤æ–­å·¦ä¸‹ä¸å·¦ä¸Šä¸ä¸­é—´é¢œè‰²æ˜¯å¦ç›¸åŒ
+			.IF @leftTop.psize && @leftBottom.psize
+				mov ebx, @leftTop.pcolor
+				.IF @leftBottom.pcolor == ebx && @centerPiece.pcolor == ebx
+					mov eax, 1
+					ret
+				.ENDIF
+			.ENDIF
+
+			;åˆ¤æ–­å·¦ä¸Šä¸å³ä¸Šä¸ä¸­é—´é¢œè‰²æ˜¯å¦ç›¸åŒ
+			.IF @leftTop.psize && @rightTop.psize
+				mov ebx, @leftTop.pcolor
+				.IF @rightTop.pcolor == ebx && @centerPiece.pcolor == ebx
+					mov eax, 1
+					ret
+				.ENDIF
+			.ENDIF
+
+			;åˆ¤æ–­å³ä¸Šä¸å³ä¸‹ä¸ä¸­é—´é¢œè‰²æ˜¯å¦ç›¸åŒ
+			.IF @rightTop.psize && @rightBottom.psize
+				mov ebx, @rightTop.pcolor
+				.IF @rightBottom.pcolor == ebx && @centerPiece.pcolor == ebx
+					mov eax, 1
+					ret
+				.ENDIF
+			.ENDIF
+
+			;åˆ¤æ–­å·¦ä¸‹ä¸å³ä¸‹ä¸ä¸­é—´é¢œè‰²æ˜¯å¦ç›¸åŒ
+			.IF @leftBottom.psize && @rightBottom.psize
+				mov ebx, @leftBottom.pcolor
+				.IF @rightBottom.pcolor == ebx && @centerPiece.pcolor == ebx
+					mov eax, 1
+					ret
+				.ENDIF
+			.ENDIF
+
+			inc @y
+		.ENDW
+		inc @x
+	.ENDW
+
+	;è€ƒå¯Ÿæ¨ªå‘ä¸¤ä¸ªæ£‹å­ä¸å®ƒä»¬å››ä¸ªè§’çš„æ£‹å­
+	LOCAL @centerLeft:Piece
+	LOCAL @centerRight:Piece
+	mov @x, 1
+	.WHILE @x < ecx
+		mov @y, 0
+		.WHILE @y < ecx
+			invoke getPiece, addr @centerRight, @x, @y
+			invoke getNearbyPiece, addr @centerLeft, @x, @y, -1, 0
+			invoke getNearbyPiece, addr @leftTop, @x, @y, -2, -1
+			invoke getNearbyPiece, addr @leftBottom, @x, @y, -2, 1
+			invoke getNearbyPiece, addr @rightTop, @x, @y, 1, -1
+			invoke getNearbyPiece, addr @rightBottom, @x, @y, 1, 1
+
+			.IF @centerRight.psize && @centerLeft.psize
+				mov ebx, @centerLeft.pcolor
+				.IF @leftTop.pcolor==ebx || @leftBottom.pcolor==ebx || @rightTop.pcolor==ebx || @rightBottom.pcolor==ebx
+					mov eax, 1
+					ret
+				.EndIF
+			.ENDIF
+			
+			inc @y
+		.ENDW
+		inc @x
+	.ENDW
+
+	;è€ƒå¯Ÿçºµå‘ä¸¤ä¸ªæ£‹å­ä¸å®ƒä»¬å››ä¸ªè§’çš„æ£‹å­
+	LOCAL @centerUp:Piece
+	LOCAL @centerDown:Piece
+	mov @x, 0
+	.WHILE @x < ecx
+		mov @y, 1
+		.WHILE @y < ecx
+			invoke getPiece, addr @centerDown, @x, @y
+			invoke getNearbyPiece, addr @centerUp, @x, @y, 0, -1
+			invoke getNearbyPiece, addr @leftTop, @x, @y, -1, -2
+			invoke getNearbyPiece, addr @leftBottom, @x, @y, -1, 1
+			invoke getNearbyPiece, addr @rightTop, @x, @y, 1, -2
+			invoke getNearbyPiece, addr @rightBottom, @x, @y, 1, 1
+
+			.IF @centerUp.psize && @centerDown.psize
+				mov ebx, @centerUp.pcolor
+				.IF @leftTop.pcolor==ebx || @leftBottom.pcolor==ebx || @rightTop.pcolor==ebx || @rightBottom.pcolor==ebx
+					mov eax, 1
+					ret
+				.EndIF
+			.ENDIF
+		.ENDW
+	
+	.ENDW
+	ret
+hasSolution endp
 
 
 
 
-;¸üĞÂÍæ¼ÒĞÅÏ¢
+;æ›´æ–°ç©å®¶ä¿¡æ¯
 updatePlayer proc
 
 	ret
 updatePlayer endp
 
-;¸üĞĞÓÎÏ·Êı¾İ
+;æ›´è¡Œæ¸¸æˆæ•°æ®
 update proc
-	.IF PageStatus == 0											;ÔÚ¿ªÊ¼½çÃæ
+	.IF PageStatus == 0											;åœ¨å¼€å§‹ç•Œé¢
 		ret
-	.ELSEIF PageStatus == 1										;ÔÚÓÎÏ·½çÃæ
+	.ELSEIF PageStatus == 1										;åœ¨æ¸¸æˆç•Œé¢
 		invoke updatePlayer
 		.IF exChangeLabel == 1
 			invoke updatePieces
@@ -681,10 +850,10 @@ update proc
 update endp
 
 ;----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-;Æå×ÓÉú³É
+;æ£‹å­ç”Ÿæˆ
 ;----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-;Éú³ÉÕû¸öÆåÅÌ
+;ç”Ÿæˆæ•´ä¸ªæ£‹ç›˜
 initPieces proc
 	Local @index:POINT
 	invoke crt_srand
@@ -694,7 +863,7 @@ initPieces proc
 	mov @index.x,0
 	mov @index.y,0
 
-	.WHILE ecx > 0																						;Ñ­»·Éú³ÉÃ¿Ò»Æå×Ó£¨À¬»øloop²»ÄÜÓÃ£©
+	.WHILE ecx > 0																						;å¾ªç¯ç”Ÿæˆæ¯ä¸€æ£‹å­ï¼ˆåƒåœ¾loopä¸èƒ½ç”¨ï¼‰
 		push ecx
 			mov edi,0
 			mov ecx,BoardWidth
@@ -703,7 +872,7 @@ initPieces proc
 				mov edx,0
 				invoke crt_rand
 				div colorType
-				.IF @index.x>1																			;Éú³ÉµÄÆå×ÓºáÏò²»ÄÜÁ¬×ÅÏàÍ¬ÑÕÉ«Èı¸öÒÔÉÏ
+				.IF @index.x>1																			;ç”Ÿæˆçš„æ£‹å­æ¨ªå‘ä¸èƒ½è¿ç€ç›¸åŒé¢œè‰²ä¸‰ä¸ªä»¥ä¸Š
 					mov ebx,(Piece PTR [esi+edi-(type Piece)]).pcolor
 					.IF ebx == edx
 						mov ebx,(Piece PTR [esi+edi-(type Piece)*2]).pcolor
@@ -716,7 +885,7 @@ initPieces proc
 						.ENDIF
 					.ENDIF
 				.ENDIF
-				.IF @index.y>1																			;Éú³ÉµÄÆå×ÓÊúÏò²»ÄÜÁ¬×ÅÏàÍ¬ÑÕÉ«Èı¸öÒÔÉÏ
+				.IF @index.y>1																			;ç”Ÿæˆçš„æ£‹å­ç«–å‘ä¸èƒ½è¿ç€ç›¸åŒé¢œè‰²ä¸‰ä¸ªä»¥ä¸Š
 					mov ebx,(Piece PTR [esi+edi-(type Piece)*9]).pcolor
 					.IF ebx == edx
 						mov ebx,(Piece PTR [esi+edi-(type Piece)*18]).pcolor
@@ -747,7 +916,7 @@ initPieces endp
 
 
 ;----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-;ÓÎÏ·³õÊ¼»¯
+;æ¸¸æˆåˆå§‹åŒ–
 ;----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 initGame proc
 	push eax
@@ -763,7 +932,7 @@ initGame proc
 	ret
 initGame endp
 
-;³õÊ¼»¯Õû¸öÆåÅÌµÄÆå×Ó
+;åˆå§‹åŒ–æ•´ä¸ªæ£‹ç›˜çš„æ£‹å­
 startAGame proc
 	invoke initGame
 	invoke initPieces
@@ -794,21 +963,21 @@ startAGame endp
 
 
 ;----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-;Êó±êÏìÓ¦ÊÂ¼ş
+;é¼ æ ‡å“åº”äº‹ä»¶
 ;----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 pressAtStartPage proc po:POINT
 	pushad
 		mov eax,po.x
 		mov ebx,po.y
-		.IF (eax>=StartBtnLT.x && eax<=StartBtnRB.x)&&(ebx>=StartBtnLT.y && ebx<=StartBtnRB.y)			;µã»÷ÁË¿ªÊ¼ÓÎÏ·°´Å¥
-			mov PageStatus,1																			;¸ü¸ÄÓÎÏ·×´Ì¬ÎªÓÎÏ·×´Ì¬
+		.IF (eax>=StartBtnLT.x && eax<=StartBtnRB.x)&&(ebx>=StartBtnLT.y && ebx<=StartBtnRB.y)			;ç‚¹å‡»äº†å¼€å§‹æ¸¸æˆæŒ‰é’®
+			mov PageStatus,1																			;æ›´æ”¹æ¸¸æˆçŠ¶æ€ä¸ºæ¸¸æˆçŠ¶æ€
 			invoke Repaint
 		.ENDIF
 	popad
 	ret
 pressAtStartPage endp
 
-;ÓÎÏ·½çÃæÏÂµÄµã»÷ÊÂ¼ş
+;æ¸¸æˆç•Œé¢ä¸‹çš„ç‚¹å‡»äº‹ä»¶
 lMouseInGame proc pos:POINT
 	LOCAL @posOnBoard:POINT
 	LOCAL @index:POINT
@@ -817,7 +986,7 @@ lMouseInGame proc pos:POINT
 	pushad
 	mov eax,pos.x
 	mov ebx,pos.y
-	.IF (eax<startX||eax>endX || ebx<startY || ebx>endY)										;Èç¹ûµã»÷ÆåÅÌÒÔÍâµÄÎ»ÖÃ
+	.IF (eax<startX||eax>endX || ebx<startY || ebx>endY)										;å¦‚æœç‚¹å‡»æ£‹ç›˜ä»¥å¤–çš„ä½ç½®
 		ret
 	.ENDIF
 
@@ -909,12 +1078,12 @@ lMouseInGame proc pos:POINT
 lMouseInGame endp
 
 
-;¸ù¾İÓÎÏ·×´Ì¬£¬´¦Àí×ó¼üµã»÷
+;æ ¹æ®æ¸¸æˆçŠ¶æ€ï¼Œå¤„ç†å·¦é”®ç‚¹å‡»
 leftMouseHandler proc
 	LOCAL	@stPos:POINT
 	LOCAL   @scrPos:RECT
 	LOCAL   @test:RECT
-	invoke GetCursorPos,addr @stPos											;×ó¼üµã»÷µÄÆÁÄ»Î»×Ó
+	invoke GetCursorPos,addr @stPos											;å·¦é”®ç‚¹å‡»çš„å±å¹•ä½å­
 	invoke ScreenToClient,hWinMain,addr @stPos								;
 	.IF PageStatus == 0
 		invoke pressAtStartPage,@stPos
@@ -926,9 +1095,9 @@ leftMouseHandler endp
 
 
 ;----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-;»æÍ¼
+;ç»˜å›¾
 ;----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-;»æÖÆÆåÅÌ
+;ç»˜åˆ¶æ£‹ç›˜
 paintGrounds proc _hWnd,_hDC
 	LOCAL @OldPen
 	LOCAL @OldBrush
@@ -980,7 +1149,7 @@ paintGrounds proc _hWnd,_hDC
 paintGrounds endp
 
 
-;»æÖÆÑªÌõ
+;ç»˜åˆ¶è¡€æ¡
 paintHP proc  _hWnd,_hDC
 	LOCAL @OldBrush
 	LOCAL @OldPen
@@ -988,7 +1157,7 @@ paintHP proc  _hWnd,_hDC
 	ret
 paintHP endp
 
-;»æÖÆÍæ¼ÒĞÅÏ¢
+;ç»˜åˆ¶ç©å®¶ä¿¡æ¯
 paintPlayer proc _hWnd,_hDC
 	LOCAL @OldBrush
 	LOCAL @OldPen
@@ -1070,7 +1239,7 @@ paintPlayer endp
 
 
 
-;»æÖÆ¿ªÊ¼½çÃæ£¬°´Å¥
+;ç»˜åˆ¶å¼€å§‹ç•Œé¢ï¼ŒæŒ‰é’®
 paintStartPage proc _hWnd,_hDC
 	LOCAL @OldBrush
 	invoke  GetStockObject,BLACK_BRUSH
@@ -1086,7 +1255,7 @@ paintStartPage proc _hWnd,_hDC
 paintStartPage endp
 
 
-;»æÖÆµ¥¸öÆå×Ó
+;ç»˜åˆ¶å•ä¸ªæ£‹å­
 paintCell proc _hWnd:DWORD,_hDC:DWORD,pos:Cell,color:DWORD,_size:DWORD
 	LOCAL @OldBrush
 	LOCAL @OldPen
@@ -1132,7 +1301,7 @@ paintCell proc _hWnd:DWORD,_hDC:DWORD,pos:Cell,color:DWORD,_size:DWORD
 paintCell endp
 
 
-;»æÖÆËùÓĞÆå×Ó
+;ç»˜åˆ¶æ‰€æœ‰æ£‹å­
 paintPieces proc _hWnd:DWORD,_hDC:DWORD
 	mov ecx,BoardWidth
 	mov esi,offset pieces
@@ -1155,14 +1324,14 @@ paintPieces proc _hWnd:DWORD,_hDC:DWORD
 paintPieces endp
 
 
-;»æÖÆÑ¡ÖĞµ¥Ôª¸ñ
+;ç»˜åˆ¶é€‰ä¸­å•å…ƒæ ¼
 paintSelected proc _hWnd:DWORD,_hDC:DWORD
 	LOCAL @OldPen
 	invoke  CreatePen,PS_SOLID,3,0ff00ffH
 	invoke  SelectObject,_hDC,eax
 	mov @OldPen,eax
 	mov eax,BoardWidth
-	.IF CellSelected1.x<eax												;´æÔÚÑ¡ÖĞµ¥Ôª¸ñ
+	.IF CellSelected1.x<eax												;å­˜åœ¨é€‰ä¸­å•å…ƒæ ¼
 		mov eax,CellSelected1.x
 		mov ebx,CellSelected1.y
 		imul eax,CellSize
@@ -1179,7 +1348,7 @@ paintSelected proc _hWnd:DWORD,_hDC:DWORD
 		invoke  SelectObject,_hDC,eax
 		mov eax,BoardWidth
 		
-		.IF CellSelected2.x<eax											;´æÔÚÁ½¸öÑ¡ÖĞ¸ñ
+		.IF CellSelected2.x<eax											;å­˜åœ¨ä¸¤ä¸ªé€‰ä¸­æ ¼
 		mov eax,CellSelected2.x
 		mov ebx,CellSelected2.y
 		imul eax,CellSize
