@@ -83,7 +83,7 @@ ResetExChange proc
 	ret
 ResetExChange endp
 
-checkPiece proc  X:DWORD,Y:DWORD,toUpdate:DWORD,center:DWORD,_Start:DWORd,_End:DWord
+checkPiece proc toUpdate:DWORD,hasBomb:DWORD,center:DWORD,_Start:DWORd,_End:DWord,X:DWORD,Y:DWORD
 	LOCAL @vlen:DWORD
 	LOCAL @hlen:DWORD
 	LOCAL @res:Piece
@@ -92,10 +92,17 @@ checkPiece proc  X:DWORD,Y:DWORD,toUpdate:DWORD,center:DWORD,_Start:DWORd,_End:D
 	LOCAL @Start:POINT
 	LOCAL @End:POINT
 	LOCAL @Center:POINT
+	LOCAL @existBomb:DWORD
+
+	mov esi,hasBomb
+	mov ebx,0
+	mov [esi],ebx
 
 	mov esi,toUpdate
 	mov ebx,0
 	mov [esi],ebx
+
+	mov @existBomb,0
 
 	mov @vlen,0
 	mov @hlen,0
@@ -108,8 +115,11 @@ checkPiece proc  X:DWORD,Y:DWORD,toUpdate:DWORD,center:DWORD,_Start:DWORd,_End:D
 		push eax
 		invoke getPiece,addr @res,eax,Y
 		pop eax
-		.IF @res.pcolor == ebx
+		.IF @res.pcolor == ebx && @res.psize >= 1
 			inc @hlen
+			.IF @res.psize == 2 
+				mov @existBomb,1
+			.ENDIF
 		.ELSE
 			.break
 		.ENDIF
@@ -136,8 +146,11 @@ checkPiece proc  X:DWORD,Y:DWORD,toUpdate:DWORD,center:DWORD,_Start:DWORd,_End:D
 		pushad
 		invoke getPiece,addr @res,eax,Y
 		popad
-		.IF @res.pcolor == ebx
+		.IF @res.pcolor == ebx && @res.psize >= 1
 			inc @hlen
+			.IF @res.psize == 2
+				mov @existBomb,1
+			.ENDIF
 		.ELSE
 			.break
 		.ENDIF
@@ -164,9 +177,16 @@ checkPiece proc  X:DWORD,Y:DWORD,toUpdate:DWORD,center:DWORD,_Start:DWORd,_End:D
 		mov (POINT PTR [esi]).x,eax
 		mov eax,@Start.y
 		mov (POINT PTR [esi]).y,eax
-		
+		.IF @existBomb == 1
+			pushad
+			mov esi,hasBomb
+			mov ebx,1
+			mov [esi],ebx
+			popad
+		.ENDIF
 		ret
 	.ELSEIF
+		mov @existBomb,0
 		mov eax,Y
 		mov ebx,@s1.pcolor
 		.While eax >= 0
@@ -175,6 +195,9 @@ checkPiece proc  X:DWORD,Y:DWORD,toUpdate:DWORD,center:DWORD,_Start:DWORd,_End:D
 			pop eax
 			.IF @res.pcolor == ebx && @res.psize >= 1
 				inc @vlen
+				.IF @res.psize == 2 
+					mov @existBomb,1
+				.ENDIF
 			.ELSE
 				.break
 			.ENDIF
@@ -203,6 +226,9 @@ checkPiece proc  X:DWORD,Y:DWORD,toUpdate:DWORD,center:DWORD,_Start:DWORd,_End:D
 			popad
 			.IF @res.pcolor == ebx && @res.psize >= 1
 				inc @vlen
+				.IF @res.psize == 2 
+					mov @existBomb,1
+				.ENDIF
 			.ELSE
 				.break
 			.ENDIF
@@ -230,7 +256,13 @@ checkPiece proc  X:DWORD,Y:DWORD,toUpdate:DWORD,center:DWORD,_Start:DWORd,_End:D
 			mov (POINT PTR [esi]).x,eax
 			mov eax,@Start.y
 			mov (POINT PTR [esi]).y,eax
-			
+			.IF @existBomb == 1
+				pushad
+				mov esi,hasBomb
+				mov ebx,1
+				mov [esi],ebx
+				popad
+			.ENDIF
 			ret
 		.ENDIF
 	.ENDIF
@@ -370,6 +402,225 @@ movPiece proc _Center:POINT,_Start:POINT,_End:POINT
 	ret
 movPiece endp
 
+_detonate Proc proc X:DWORD,Y:DWORD
+	LOCAl @res:Piece
+
+	pushad
+	invoke getPiece,addr @res,X,Y
+	mov eax,X
+	mov ebx,Y 
+	
+	.IF @res.psize <= 1
+		push eax
+			invoke setPiece,eax,Y,0,0
+		pop eax	
+		ret
+	.ELSE
+		push eax
+			invoke setPiece,eax,Y,@res.pcolor,0
+		pop eax	
+	.ENDIF
+	
+	.IF eax != 0
+		dec eax
+		push eax
+			invoke getPiece,addr @res,eax,Y
+		pop eax
+		mov ecx,2
+		.IF @res.psize == ecx
+			pushad
+				invoke 	_detonate,eax,Y
+			popad
+		.ELSE
+			push eax
+				invoke setPiece,eax,Y,0,0
+			pop eax	
+		.ENDIF
+		inc eax
+	.ENDIF
+	
+	
+	inc eax
+	.IF eax<BoardWidth
+		push eax
+			invoke getPiece,addr @res,eax,Y
+		pop eax
+		mov ecx,2
+
+		.IF @res.psize == ecx
+			pushad
+				invoke 	_detonate,eax,Y
+			popad
+		.ELSE
+			push eax
+				invoke setPiece,eax,Y,0,0
+			pop eax
+		.ENDIF
+	.ENDIF
+	dec eax
+
+
+	.IF ebx != 0
+		dec ebx
+		push eax
+			invoke getPiece,addr @res,X,ebx
+		pop eax
+		mov ecx,2
+
+		.IF @res.psize == ecx
+			pushad
+				invoke _detonate,X,ebx
+			popad
+		.ELSE
+			push eax
+			invoke setPiece,X,ebx,0,0
+			pop eax
+		.ENDIF
+		inc ebx
+	.ENDIF
+
+
+	inc ebx
+	.IF ebx<BoardWidth
+		push eax
+			invoke getPiece,addr @res,X,ebx
+		pop eax
+		mov ecx,2
+		
+		.IF @res.psize == ecx
+			pushad
+				invoke _detonate,X,ebx
+			popad
+		.ELSE
+			push eax
+			invoke setPiece,X,ebx,0,0
+			pop eax
+		.ENDIF
+	.ENDIF
+	dec ebx
+
+	;左上
+	.IF eax!=0 && ebx != 0 
+		dec eax
+		dec ebx
+
+		push eax
+			invoke getPiece,addr @res,eax,ebx
+		pop eax
+		mov ecx,2
+
+		.IF @res.psize == ecx
+			pushad
+				invoke _detonate,eax,ebx
+			popad
+		.ELSE
+			push eax
+			invoke setPiece,eax,ebx,0,0
+			pop eax
+		.ENDIF
+		inc ebx
+		inc eax
+	.ENDIF
+
+	;右上
+	inc eax
+	.IF eax<BoardWidth && ebx != 0
+		dec ebx
+
+		push eax
+			invoke getPiece,addr @res,eax,ebx
+		pop eax
+		mov ecx,2
+
+		.IF @res.psize == ecx
+			pushad
+				invoke _detonate,eax,ebx
+			popad
+		.ELSE
+			push eax
+				invoke setPiece,eax,ebx,0,0
+			pop eax
+		.ENDIF
+		
+		inc ebx
+	.ENDIF
+	dec eax
+
+
+	;右下
+	inc eax
+	inc ebx
+	.IF eax<BoardWidth && ebx <BoardWidth
+
+		push eax
+			invoke getPiece,addr @res,eax,ebx
+		pop eax
+		mov ecx,2
+
+		.IF @res.psize == ecx
+			pushad
+				invoke _detonate,eax,ebx
+			popad
+		.ELSE
+			push eax
+				invoke setPiece,eax,ebx,0,0
+			pop eax
+		.ENDIF
+	.ENDIF
+	dec ebx
+	dec eax
+
+	;左下
+	inc ebx
+	.IF eax != 0 && ebx <BoardWidth
+		dec eax
+
+		push eax
+			invoke getPiece,addr @res,eax,ebx
+		pop eax
+		mov ecx,2
+
+		.IF @res.psize == ecx
+			pushad
+				invoke _detonate,eax,ebx
+			popad
+		.ELSE
+			push eax
+				invoke setPiece,eax,ebx,0,0
+			pop eax
+		.ENDIF
+		inc eax
+	.ENDIF
+	dec ebx
+
+	popad
+	ret
+_detonate endp
+
+Detonate proc _Start:POINT,_End:POINT
+	mov eax,_Start.x
+	mov ebx,_End.x
+	.IF eax ==ebx
+		mov eax,_Start.y
+		mov ebx,_End.y
+		.While eax<=ebx
+			pushad
+				invoke _detonate,_Start.x,eax
+			popad
+			inc eax
+		.ENDW
+	.ELSEIF
+		.While eax<=ebx
+			pushad
+				invoke _detonate,eax,_Start.y
+			popad
+			inc eax
+		.ENDW
+	.ENDIF
+	ret
+Detonate endp
+
+
 updatePieces proc
 	LOCAL @vlen:DWORD
 	LOCAL @hlen:DWORD
@@ -380,17 +631,26 @@ updatePieces proc
 	LOCAL @End:POINT
 	LOCAL @Center:POINT
 	LOCAL @toUpdate:DWORD
-	invoke checkPiece,CellSelected1.x,CellSelected1.y,addr @toUpdate,addr @Center,addr @Start,addr @End
+	LOCAL @hasBomb:DWORD
+	invoke checkPiece,addr @toUpdate,addr @hasBomb,addr @Center,addr @Start,addr @End,CellSelected1.x,CellSelected1.y
 	.IF @toUpdate == 1
-		invoke getPiece,addr @res,@Center.x,@Center.y
-		invoke setPiece,@Center.x,@Center.y,@res.pcolor,2
-		invoke movPiece,@Center,@Start,@End
+		.IF @hasBomb == 0
+			invoke getPiece,addr @res,@Center.x,@Center.y
+			invoke setPiece,@Center.x,@Center.y,@res.pcolor,2
+			invoke movPiece,@Center,@Start,@End
+		.ELSE
+			invoke Detonate,@Start,@End
+		.ENDIF
 	.ENDIF
-	invoke checkPiece,CellSelected2.x,CellSelected2.y,addr @toUpdate,addr @Center,addr @Start,addr @End
+	invoke checkPiece,addr @toUpdate,addr @hasBomb,addr @Center,addr @Start,addr @End,CellSelected2.x,CellSelected2.y
 	.IF @toUpdate == 1
-		invoke getPiece,addr @res,@Center.x,@Center.y
-		invoke setPiece,@Center.x,@Center.y,@res.pcolor,2
-		invoke movPiece,@Center,@Start,@End
+		.IF @hasBomb == 0
+			invoke getPiece,addr @res,@Center.x,@Center.y
+			invoke setPiece,@Center.x,@Center.y,@res.pcolor,2
+			invoke movPiece,@Center,@Start,@End
+		.ELSE
+			invoke Detonate,@Start,@End
+		.ENDIF
 	.ENDIF
 	invoke ResetExChange
 	invoke resetSelect
