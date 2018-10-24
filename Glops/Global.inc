@@ -41,7 +41,7 @@ IFNDEF GLOBAL_INC
 				exChangeLabel:DWORD,
 				Board:Cell,
 				rowSize:DWORD,
-				lineSize:DWOrD,
+				lineSize:DWORD,
 				pieces:Piece,
 				CellSelected1:POINT,
 				CellSelected2:POINT
@@ -52,7 +52,7 @@ IFNDEF GLOBAL_INC
 
 	.data
 	szClassName     Byte		'Glops',0																		;窗口名
-	repaintFreq     DWORD		17																				
+	repaintFreq     DWORD		20																				
 	WWidth			DWORD		1620																			;窗口宽度
 	WHeight			DWORD		1000																			;窗口宽度
 	StartBtnLT		POINT		<390,400>																		;开始按钮左上角

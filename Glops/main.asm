@@ -21,10 +21,10 @@ _ProcWinMain    proc    uses ebx edi esi hWnd,uMsg,wParam,lParam
 
                 mov     eax,uMsg
                 .if     eax == WM_TIMER
-					.IF rePaintLabel > 0
-						invoke InvalidateRect,hWnd,NULL,TRUE
-					.ENDIF
+					; .IF rePaintLabel > 0
+					; .ENDIF
 					invoke update
+					invoke InvalidateRect,hWnd,NULL,FALSE
                 .elseif eax == WM_PAINT
 					invoke BeginPaint,hWnd,addr @stPS
 					invoke Paint,hWnd,eax

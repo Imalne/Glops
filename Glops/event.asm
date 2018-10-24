@@ -13,6 +13,9 @@ include         kernel32.inc
 includelib      kernel32.lib
 includelib      msvcrt.lib
 include			Global.inc
+
+generateNewPieces PROTO
+
 .code
 
 
@@ -52,20 +55,45 @@ setPiece proc X:DWORD,Y:DWORD,pcolor:DWORD,psize:DWORD
 	ret
 setPiece endp
 
+setNearbyPiece proc USES esi eax ebx ecx X:DWORD, Y:DWORD, offsetX:DWORD, offsetY:DWORD, pcolor:DWORD, psize:DWORD
+	mov esi,offset pieces
+	mov eax,X
+	mov ebx,Y
+	add eax, offsetX
+	add ebx, offsetY
+	mov ecx, BoardWidth
+	.IF eax >= 0 && ebx >=0 && eax < ecx && ebx < ecx
+		imul eax,lineSize
+		imul ebx,type Piece
+		add eax,ebx
+		mov ecx,pcolor
+		mov (Piece PTR [esi+eax]).pcolor, ecx
+		mov ecx,psize
+		mov (Piece PTR [esi+eax]).psize, ecx
+	.ENDIF
+	ret
+setNearbyPiece endp
+
 getNearbyPiece proc USES ecx piecePtr:DWORD, X:DWORD, Y:DWORD, offsetX:DWORD, offsetY:DWORD
 	LOCAL @x
 	LOCAL @y
-	mov @x, X 
-	mov @y, Y
-	mov ecx, BoardWidth 
-	add @x, offsetX
-	add @y, offsetY
+	mov ecx, X
+	mov @x, ecx
+	mov ecx, Y
+	mov @y, ecx 
+	mov ecx, offsetX
+	add @x, ecx
+	mov ecx, offsetY
+	add @y, ecx
+	mov ecx, BoardWidth
 	.IF @x >= 0 && @y >=0 && @x < ecx && @y < ecx
 		invoke getPiece, piecePtr, @x, @y
 	.ELSE
-		(Piece PTR piecePtr).psize = 0
-		(Piece PTR piecePtr).pcolor = 0
+		mov ecx, piecePtr
+		mov (Piece PTR [ecx]).psize, 0
+		mov (Piece PTR [ecx]).pcolor, 0
 	.ENDIF
+	ret
 getNearbyPiece endp
 
 ;----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -657,6 +685,7 @@ updatePieces proc
 		.ELSE
 			invoke Detonate,@Start,@End
 		.ENDIF
+		invoke generateNewPieces
 	.ENDIF
 	invoke checkPiece,addr @toUpdate,addr @hasBomb,addr @Center,addr @Start,addr @End,CellSelected2.x,CellSelected2.y
 	.IF @toUpdate == 1
@@ -667,332 +696,30 @@ updatePieces proc
 		.ELSE
 			invoke Detonate,@Start,@End
 		.ENDIF
+		invoke generateNewPieces
 	.ENDIF
 	invoke ResetExChange
 	invoke resetSelect
  	ret
 updatePieces endp
 
-generateNewPieces proc USES ebx, ecx, edx
-	;遍历使用
-	LOCAL @singlePiece:Piece
-	LOCAL @x
-	LOCAL @y
-	LOCAL @rightPiece
-	LOCAL @leftMimicPiece
-	LOCAL @rightMimicPiece
-	LOCAl @upMimicPiece
-	LOCAl @downMimicPiece
-	LOCAL @leftUpPiece
-	LOCAL @leftDownPiece
-	LOCAl @rightUpPiece
-	LOCAL @rightDownPiece
-	LOCAL @helperPiece
-	mov ecx, BoardWidth
-	mov ebx, BoardWidth
-	dec ebx
-	;检查全局解
-	invoke hasSolution    
-
-	;如果存在全局解
-L1:	.IF eax == 1          
-		mov @x, 0
-		.WHILE @x < ecx
-			mov @y, 0
-			.WHILE @y < ecx
-				invoke getPiece, addr @singlePiece, @x, @y   
-				.IF @singlePiece.psize == 0
-					invoke crt_rand
-					div colorType
-					mov @singlePiece.pcolor, edx
-					mov @singlePiece.psize, 1
-				.ENDIF
-				inc @y
-			.ENDW
-			inc @x
-		.ENDW
-
-	;如果不存在全局解
-	.ELSE
-		mov @y, 0
-		.WHILE @y < ecx
-			mov @x, 0
-			.WHILE @x < ecx
-				invoke getPiece, addr @singlePiece, @x, @y
-				invoke getNearbyPiece, addr @rightPiece, @x, @y, 1, 0
-				.IF singlePiece.psize == 0
-					.IF @x!=ebx && @rightPiece.psize==0 ;连续两个空块
-						invoke getNearbyPiece, addr @leftMimicPiece, @x, @y, -2, 0
-						invoke getNearbyPiece, addr @rightMimicPiece, @x, @y, 3, 0
-						.IF @leftMimicPiece.psize != 0
-							mov edx, @leftMimicPiece.pcolor
-						.ELSEIF @rightMimicPiece.psize != 0
-							mov edx, @rightMimicPiece.pcolor
-						.ELSE
-							invoke crt_rand
-							div colorType
-						.ENDIF
-						mov @singlePiece.pcolor, edx
-						mov @singlePiece.psize, 1
-						mov @rightPiece.pcolor, edx
-						mov @rightPiece.psize, 1
-						mov eax, 1
-						jmp L1; 此时已经有解，转到随机生成
-					
-					.ELSE
-						.IF @x==0;最左边列
-							invoke getNearbyPiece, addr @rightUpPiece, @x, @y, 1, -1
-							invoke getNearbyPiece, addr @rightDownPiece, @x, @y, 1, 1
-							invoke getNearbyPiece, addr @rightMimicPiece, @x, @y, 2, 0
-							invoke getNearbyPiece, addr @upMimicPiece, @x, @y, 0, -2
-							invoke getNearbyPiece, addr @downMimicPiece, @x, @y, 0, 2
-							invoke getNearbyPiece, addr @helperPiece, @x, @y, 3, 0
-							mov edx, @rightUpPiece.pcolor
-							.IF	(@rightUpPiece.psize && @rightDownPiece.psize) && (@rightDownPiece.pcolor==edx);可向右平移插入两个空块
-								mov @singlePiece.pcolor, edx
-								mov @singlePiece.pcolor, 1
-								mov eax, 1
-								jmp L1
-							.ENDIF
-							mov edx, @rightMimicPiece
-							.IF helperPiece.pcolor==edx;可向右平移连接两个连续块
-								mov @singlePiece.pcolor, edx
-								mov @singlePiece.pcolor, 1
-								mov eax, 1
-								jmp L1
-							.ENDIF
-
-							invoke getNearbyPiece, addr @helperPiece, @x, @y, 2, -1
-							mov edx, @rightUpPiece
-							.IF helperPiece.pcolor==edx && (@rightUpPiece.psize && helperPiece.psize);可向上平移连接两个连续块
-								mov @singlePiece.pcolor, edx
-								mov @singlePiece.pcolor, 1
-								mov eax, 1
-								jmp L1
-							.ENDIF
-							invoke getNearbyPiece, addr @helperPiece, @x, @y, 0, -3
-							mov edx, @upMimicPiece
-							.IF  (@upMimicPiece.psize && helperPiece.psize) && helperPiece.pcolor==edx;可向上平移连接两个连续块
-								mov @singlePiece.pcolor, edx
-								mov @singlePiece.pcolor, 1
-								mov eax, 1
-								jmp L1
-							.ENDIF
-							
-							invoke getNearbyPiece, addr @helperPiece, @x, @y, 2, 1
-							mov edx, @rightDownPiece
-							.IF helperPiece.pcolor==edx;向下平移连接两个连续块
-								mov @singlePiece.pcolor, edx
-								mov @singlePiece.pcolor, 1
-								mov eax, 1
-								jmp L1
-							.ENDIF
-							invoke getNearbyPiece, addr @helperPiece, @x, @y, 0, 3
-							mov edx, @downMimicPiece
-							.IF  (@downMimicPiece.psize && helperPiece.psize) && helperPiece.pcolor==edx;可向下平移连接两个连续块
-								mov @singlePiece.pcolor, edx
-								mov @singlePiece.pcolor, 1
-								mov eax, 1
-								jmp L1
-							.ENDIF
-						.ELSEIF @x==ebx;最右边列
-							invoke getNearbyPiece, addr @leftUpPiece, @x, @y, -1, -1
-							invoke getNearbyPiece, addr @leftDownPiece, @x, @y, -1, 1
-							invoke getNearbyPiece, addr @leftMimicPiece, @x, @y, -2, 0
-							invoke getNearbyPiece, addr @upMimicPiece, @x, @y, 0, -2
-							invoke getNearbyPiece, addr @downMimicPiece, @x, @y, 0, 2
-							invoke getNearbyPiece, addr @helperPiece, @x, @y, -3, 0
-
-							mov edx, @leftUpPiece.pcolor
-							.IF	(@leftUpPiece.psize && @leftDownPiece.psize) && (@leftDownPiece.pcolor==edx)
-								mov @singlePiece.pcolor, edx
-								mov @singlePiece.pcolor, 1
-								mov eax, 1
-								jmp L1
-							.ENDIF
-							mov edx, @leftMimicPiece
-							.IF helperPiece.pcolor==edx
-								mov @singlePiece.pcolor, edx
-								mov @singlePiece.pcolor, 1
-								mov eax, 1
-								jmp L1
-							.ENDIF
-							;向上平移有解
-							invoke getNearbyPiece, addr @helperPiece, @x, @y, -2, -1
-							mov edx, @leftUpPiece
-							.IF helperPiece.pcolor==edx
-								mov @singlePiece.pcolor, edx
-								mov @singlePiece.pcolor, 1
-								mov eax, 1
-								jmp L1
-							.ENDIF
-							invoke getNearbyPiece, addr @helperPiece, @x, @y, 0, -3
-							mov edx, @upMimicPiece
-							.IF  (@upMimicPiece.psize && helperPiece.psize) && helperPiece.pcolor==edx
-								mov @singlePiece.pcolor, edx
-								mov @singlePiece.pcolor, 1
-								mov eax, 1
-								jmp L1
-							.ENDIF
-							;向下平移有解
-							invoke getNearbyPiece, addr @helperPiece, @x, @y, -2, 1
-							mov edx, @leftDownPiece
-							.IF helperPiece.pcolor==edx
-								mov @singlePiece.pcolor, edx
-								mov @singlePiece.pcolor, 1
-								mov eax, 1
-								jmp L1
-							.ENDIF
-							invoke getNearbyPiece, addr @helperPiece, @x, @y, 0, 3
-							mov edx, @upMimicPiece
-							.IF  (@downMimicPiece.psize && helperPiece.psize) && helperPiece.pcolor==edx;可向上平移连接两个连续块
-								mov @singlePiece.pcolor, edx
-								mov @singlePiece.pcolor, 1
-								mov eax, 1
-								jmp L1
-							.ENDIF
-
-						.ELSEIF @y==0;最上边列
-							invoke getNearbyPiece, addr @leftDownPiece, @x, @y, -1, 1
-							invoke getNearbyPiece, addr @rightDownPiece, @x, @y, 1, 1
-							invoke getNearbyPiece, addr @downMimicPiece, @x, @y, 0, 2
-							invoke getNearbyPiece, addr @leftMimicPiece, @x, @y, -2, 0
-							invoke getNearbyPiece, addr @rightMimicPiece, @x, @y, 2, 0
-							invoke getNearbyPiece, addr @helperPiece,  @x, @y, 0, 3
-							mov edx, @leftDownPiece
-							.IF	(@leftDownPiece.psize && @rightDownPiece.psize) && (@rightDownPiece.pcolor==edx)
-								mov @singlePiece.pcolor, edx
-								mov @singlePiece.pcolor, 1
-								mov eax, 1
-								jmp L1
-							.ENDIF
-							mov edx, @downMimicPiece
-							.IF helperPiece.pcolor==edx
-								mov @singlePiece.pcolor, edx
-								mov @singlePiece.pcolor, 1
-								mov eax, 1
-								jmp L1
-							.ENDIF
-							;向左平移有解
-							invoke getNearbyPiece, addr @helperPiece, @x, @y, -1, 2
-							mov edx, @leftDownPiece
-							.IF helperPiece.pcolor==edx
-								mov @singlePiece.pcolor, edx
-								mov @singlePiece.pcolor, 1
-								mov eax, 1
-								jmp L1
-							.ENDIF
-							invoke getNearbyPiece, addr @helperPiece, @x, @y, -3, 0
-							mov edx, @leftMimicPiece
-							.IF  (@leftMimicPiece.psize && helperPiece.psize) && helperPiece.pcolor==edx
-								mov @singlePiece.pcolor, edx
-								mov @singlePiece.pcolor, 1
-								mov eax, 1
-								jmp L1
-							.ENDIF
-							;向右平移有解
-							invoke getNearbyPiece, addr @helperPiece, @x, @y, 1, 2
-							mov edx, @rightDownPiece
-							.IF helperPiece.pcolor==edx
-								mov @singlePiece.pcolor, edx
-								mov @singlePiece.pcolor, 1
-								mov eax, 1
-								jmp L1
-							.ENDIF
-							invoke getNearbyPiece, addr @helperPiece, @x, @y, 3, 0
-							mov edx, @rightMimicPiece
-							.IF  (@rightMimicPiece.psize && helperPiece.psize) && helperPiece.pcolor==edx
-								mov @singlePiece.pcolor, edx
-								mov @singlePiece.pcolor, 1
-								mov eax, 1
-								jmp L1
-							.ENDIF
-
-						.ELSEIF @y==ebx;最下边列
-							invoke getNearbyPiece, addr @leftUpPiece, @x, @y, -1, -1
-							invoke getNearbyPiece, addr @rightUpPiece, @x, @y, 1, -1
-							invoke getNearbyPiece, addr @upMimicPiece, @x, @y, 0, -2
-							invoke getNearbyPiece, addr @leftMimicPiece, @x, @y, -2, 0
-							invoke getNearbyPiece, addr @rightMimicPiece, @x, @y, 2, 0
-							invoke getNearbyPiece, addr @helperPiece,  @x, @y, 0, -3
-							mov edx, @leftUpPiece
-							.IF	(@leftUpPiece.psize && @rightUpPiece.psize) && (@rightUpPiece.pcolor==edx)
-								mov @singlePiece.pcolor, edx
-								mov @singlePiece.pcolor, 1
-								mov eax, 1
-								jmp L1
-							.ENDIF
-							mov edx, @upMimicPiece
-							.IF helperPiece.pcolor==edx
-								mov @singlePiece.pcolor, edx
-								mov @singlePiece.pcolor, 1
-								mov eax, 1
-								jmp L1
-							.ENDIF
-							;向左平移有解
-							invoke getNearbyPiece, addr @helperPiece, @x, @y, -1, -2
-							mov edx, @leftUpPiece
-							.IF helperPiece.pcolor==edx
-								mov @singlePiece.pcolor, edx
-								mov @singlePiece.pcolor, 1
-								mov eax, 1
-								jmp L1
-							.ENDIF
-							invoke getNearbyPiece, addr @helperPiece, @x, @y, -3, 0
-							mov edx, @leftMimicPiece
-							.IF  (@leftMimicPiece.psize && helperPiece.psize) && helperPiece.pcolor==edx;可向上平移连接两个连续块
-								mov @singlePiece.pcolor, edx
-								mov @singlePiece.pcolor, 1
-								mov eax, 1
-								jmp L1
-							.ENDIF
-							;向右平移有解
-							invoke getNearbyPiece, addr @helperPiece, @x, @y, 1, -2
-							mov edx, @rightUpPiece
-							.IF helperPiece.pcolor==edx
-								mov @singlePiece.pcolor, edx
-								mov @singlePiece.pcolor, 1
-								mov eax, 1
-								jmp L1
-							.ENDIF
-							invoke getNearbyPiece, addr @helperPiece, @x, @y, 3, 0
-							mov edx, @rightMimicPiece
-							.IF  (@rightMimicPiece.psize && helperPiece.psize) && helperPiece.pcolor==edx
-								mov @singlePiece.pcolor, edx
-								mov @singlePiece.pcolor, 1
-								mov eax, 1
-								jmp L1
-							.ENDIF
-
-						.ENDIF
-						;没办法只能随机
-						invoke crt_rand
-						div colorType
-						mov @singlePiece.pcolor, edx
-						mov @singlePiece.pcolor, 1
-					.ENDIF
-				.ENDIF
-				inc @x
-			.ENDW
-			inc @y
-		ENDW
-	.ENDIF
-generateNewPiece endp
-
-hasSolution proc USES esi ebx ecx
-	mov esi, pieces
-	mov eax, 0
-	mov ecx, BoardWidth
-
+hasSolution proc USES ebx ecx
 	LOCAL @leftTop:Piece
 	LOCAL @leftBottom:Piece
 	LOCAL @rightTop:Piece
 	LOCAL @rightBottom:Piece
 	LOCAL @x:DWORD
 	LOCAL @y:DWORD
+	LOCAL @centerPiece:Piece
+	LOCAL @centerLeft:Piece
+	LOCAL @centerRight:Piece
+	LOCAL @centerUp:Piece
+	LOCAL @centerDown:Piece
+
+	mov eax, 0
+	mov ecx, BoardWidth
 
 	;考察单个棋子与其四个角的棋子
-	LOCAL @centerPiece:Piece
 
 	mov @x, 0
 	.WHILE @x < ecx
@@ -1046,8 +773,6 @@ hasSolution proc USES esi ebx ecx
 	.ENDW
 
 	;考察横向两个棋子与它们四个角的棋子
-	LOCAL @centerLeft:Piece
-	LOCAL @centerRight:Piece
 	mov @x, 1
 	.WHILE @x < ecx
 		mov @y, 0
@@ -1073,8 +798,6 @@ hasSolution proc USES esi ebx ecx
 	.ENDW
 
 	;考察纵向两个棋子与它们四个角的棋子
-	LOCAL @centerUp:Piece
-	LOCAL @centerDown:Piece
 	mov @x, 0
 	.WHILE @x < ecx
 		mov @y, 1
@@ -1098,6 +821,302 @@ hasSolution proc USES esi ebx ecx
 	.ENDW
 	ret
 hasSolution endp
+
+generateNewPieces proc USES ebx ecx edx esi
+	;遍历使用
+	LOCAL @singlePiece:Piece
+	LOCAL @x:DWORD
+	LOCAL @y:DWORD
+	LOCAL @rightPiece:Piece
+	LOCAL @leftMimicPiece:Piece
+	LOCAL @rightMimicPiece:Piece
+	LOCAl @upMimicPiece:Piece
+	LOCAl @downMimicPiece:Piece
+	LOCAL @leftUpPiece:Piece
+	LOCAL @leftDownPiece:Piece
+	LOCAl @rightUpPiece:Piece
+	LOCAL @rightDownPiece:Piece
+	LOCAL @helperPiece:Piece
+	lea esi, pieces
+	mov ecx, BoardWidth
+	mov ebx, BoardWidth
+	dec ebx
+	;检查全局解
+	invoke hasSolution    
+
+	;如果存在全局解
+L1:	.IF eax == 1          
+		mov @x, 0
+		.WHILE @x < ecx
+			mov @y, 0
+			.WHILE @y < ecx
+				invoke getPiece, addr @singlePiece, @x, @y   
+				.IF @singlePiece.psize == 0
+					pushad
+					invoke crt_rand
+					popad
+					div colorType
+					invoke setPiece, @x, @y, edx, 1
+				.ENDIF
+				inc @y
+			.ENDW
+			inc @x
+		.ENDW
+
+	;如果不存在全局解
+	.ELSE
+		mov @y, 0
+		.WHILE @y < ecx
+			mov @x, 0
+			.WHILE @x < ecx
+				invoke getPiece, addr @singlePiece, @x, @y
+				invoke getNearbyPiece, addr @rightPiece, @x, @y, 1, 0
+				.IF @singlePiece.psize == 0
+					.IF @x!=ebx && @rightPiece.psize==0 ;连续两个空块
+						invoke getNearbyPiece, addr @leftMimicPiece, @x, @y, -2, 0
+						invoke getNearbyPiece, addr @rightMimicPiece, @x, @y, 3, 0
+						.IF @leftMimicPiece.psize != 0
+							mov edx, @leftMimicPiece.pcolor
+						.ELSEIF @rightMimicPiece.psize != 0
+							mov edx, @rightMimicPiece.pcolor
+						.ELSE
+							invoke crt_rand
+							div colorType
+						.ENDIF
+						invoke setNearbyPiece, @x, @y, 0, 0, edx, 1
+						invoke setNearbyPiece, @x, @y, 1, 0, edx, 1
+						mov eax, 1
+						jmp L1; 此时已经有解，转到随机生成
+					
+					.ELSE
+						.IF @x==0;最左边列
+							invoke getNearbyPiece, addr @rightUpPiece, @x, @y, 1, -1
+							invoke getNearbyPiece, addr @rightDownPiece, @x, @y, 1, 1
+							invoke getNearbyPiece, addr @rightMimicPiece, @x, @y, 2, 0
+							invoke getNearbyPiece, addr @upMimicPiece, @x, @y, 0, -2
+							invoke getNearbyPiece, addr @downMimicPiece, @x, @y, 0, 2
+							invoke getNearbyPiece, addr @helperPiece, @x, @y, 3, 0
+							mov edx, @rightUpPiece.pcolor
+							.IF	(@rightUpPiece.psize && @rightDownPiece.psize) && (@rightDownPiece.pcolor==edx);可向右平移插入两个空块
+								invoke setNearbyPiece, @x, @y, 0, 0, edx, 1
+								mov eax, 1
+								jmp L1
+							.ENDIF
+							mov edx, @rightMimicPiece.pcolor
+							.IF @helperPiece.pcolor==edx;可向右平移连接两个连续块
+								invoke setNearbyPiece, @x, @y, 0, 0, edx, 1
+								mov eax, 1
+								jmp L1
+							.ENDIF
+
+							invoke getNearbyPiece, addr @helperPiece, @x, @y, 2, -1
+							mov edx, @rightUpPiece.pcolor
+							.IF @helperPiece.pcolor==edx && (@rightUpPiece.psize && @helperPiece.psize);可向上平移连接两个连续块
+								invoke setNearbyPiece, @x, @y, 0, 0, edx, 1
+								mov eax, 1
+								jmp L1
+							.ENDIF
+							invoke getNearbyPiece, addr @helperPiece, @x, @y, 0, -3
+							mov edx, @upMimicPiece.pcolor
+							.IF  (@upMimicPiece.psize && @helperPiece.psize) && @helperPiece.pcolor==edx;可向上平移连接两个连续块
+								invoke setNearbyPiece, @x, @y, 0, 0, edx, 1
+								mov eax, 1
+								jmp L1
+							.ENDIF
+							
+							invoke getNearbyPiece, addr @helperPiece, @x, @y, 2, 1
+							mov edx, @rightDownPiece.pcolor
+							.IF @helperPiece.pcolor==edx;向下平移连接两个连续块
+								invoke setNearbyPiece, @x, @y, 0, 0, edx, 1
+								mov eax, 1
+								jmp L1
+							.ENDIF
+							invoke getNearbyPiece, addr @helperPiece, @x, @y, 0, 3
+							mov edx, @downMimicPiece.pcolor
+							.IF  (@downMimicPiece.psize && @helperPiece.psize) && @helperPiece.pcolor==edx;可向下平移连接两个连续块
+								invoke setNearbyPiece, @x, @y, 0, 0, edx, 1
+								mov eax, 1
+								jmp L1
+							.ENDIF
+						.ELSEIF @x==ebx;最右边列
+							invoke getNearbyPiece, addr @leftUpPiece, @x, @y, -1, -1
+							invoke getNearbyPiece, addr @leftDownPiece, @x, @y, -1, 1
+							invoke getNearbyPiece, addr @leftMimicPiece, @x, @y, -2, 0
+							invoke getNearbyPiece, addr @upMimicPiece, @x, @y, 0, -2
+							invoke getNearbyPiece, addr @downMimicPiece, @x, @y, 0, 2
+							invoke getNearbyPiece, addr @helperPiece, @x, @y, -3, 0
+
+							mov edx, @leftUpPiece.pcolor
+							.IF	(@leftUpPiece.psize && @leftDownPiece.psize) && (@leftDownPiece.pcolor==edx)
+								invoke setNearbyPiece, @x, @y, 0, 0, edx, 1
+								mov eax, 1
+								jmp L1
+							.ENDIF
+							mov edx, @leftMimicPiece.pcolor
+							.IF @helperPiece.pcolor==edx
+								invoke setNearbyPiece, @x, @y, 0, 0, edx, 1
+								mov eax, 1
+								jmp L1
+							.ENDIF
+							;向上平移有解
+							invoke getNearbyPiece, addr @helperPiece, @x, @y, -2, -1
+							mov edx, @leftUpPiece.pcolor
+							.IF @helperPiece.pcolor==edx
+								invoke setNearbyPiece, @x, @y, 0, 0, edx, 1
+								mov eax, 1
+								jmp L1
+							.ENDIF
+							invoke getNearbyPiece, addr @helperPiece, @x, @y, 0, -3
+							mov edx, @upMimicPiece.pcolor
+							.IF  (@upMimicPiece.psize && @helperPiece.psize) && @helperPiece.pcolor==edx
+								invoke setNearbyPiece, @x, @y, 0, 0, edx, 1
+								mov eax, 1
+								jmp L1
+							.ENDIF
+							;向下平移有解
+							invoke getNearbyPiece, addr @helperPiece, @x, @y, -2, 1
+							mov edx, @leftDownPiece.pcolor
+							.IF @helperPiece.pcolor==edx
+								invoke setNearbyPiece, @x, @y, 0, 0, edx, 1
+								mov eax, 1
+								jmp L1
+							.ENDIF
+							invoke getNearbyPiece, addr @helperPiece, @x, @y, 0, 3
+							mov edx, @upMimicPiece.pcolor
+							.IF  (@downMimicPiece.psize && @helperPiece.psize) && @helperPiece.pcolor==edx;可向上平移连接两个连续块
+								invoke setNearbyPiece, @x, @y, 0, 0, edx, 1
+								mov eax, 1
+								jmp L1
+							.ENDIF
+
+						.ELSEIF @y==0;最上边列
+							invoke getNearbyPiece, addr @leftDownPiece, @x, @y, -1, 1
+							invoke getNearbyPiece, addr @rightDownPiece, @x, @y, 1, 1
+							invoke getNearbyPiece, addr @downMimicPiece, @x, @y, 0, 2
+							invoke getNearbyPiece, addr @leftMimicPiece, @x, @y, -2, 0
+							invoke getNearbyPiece, addr @rightMimicPiece, @x, @y, 2, 0
+							invoke getNearbyPiece, addr @helperPiece,  @x, @y, 0, 3
+							mov edx, @leftDownPiece.pcolor
+							.IF	(@leftDownPiece.psize && @rightDownPiece.psize) && (@rightDownPiece.pcolor==edx)
+								invoke setNearbyPiece, @x, @y, 0, 0, edx, 1
+								mov eax, 1
+								jmp L1
+							.ENDIF
+							mov edx, @downMimicPiece.pcolor
+							.IF @helperPiece.pcolor==edx
+								invoke setNearbyPiece, @x, @y, 0, 0, edx, 1
+								mov eax, 1
+								jmp L1
+							.ENDIF
+							;向左平移有解
+							invoke getNearbyPiece, addr @helperPiece, @x, @y, -1, 2
+							mov edx, @leftDownPiece.pcolor
+							.IF @helperPiece.pcolor==edx
+								invoke setNearbyPiece, @x, @y, 0, 0, edx, 1
+								mov eax, 1
+								jmp L1
+							.ENDIF
+							invoke getNearbyPiece, addr @helperPiece, @x, @y, -3, 0
+							mov edx, @leftMimicPiece.pcolor
+							.IF  (@leftMimicPiece.psize && @helperPiece.psize) && @helperPiece.pcolor==edx
+								invoke setNearbyPiece, @x, @y, 0, 0, edx, 1
+								mov eax, 1
+								jmp L1
+							.ENDIF
+							;向右平移有解
+							invoke getNearbyPiece, addr @helperPiece, @x, @y, 1, 2
+							mov edx, @rightDownPiece.pcolor
+							.IF @helperPiece.pcolor==edx
+								invoke setNearbyPiece, @x, @y, 0, 0, edx, 1
+								mov eax, 1
+								jmp L1
+							.ENDIF
+							invoke getNearbyPiece, addr @helperPiece, @x, @y, 3, 0
+							mov edx, @rightMimicPiece.pcolor
+							.IF  (@rightMimicPiece.psize && @helperPiece.psize) && @helperPiece.pcolor==edx
+								invoke setNearbyPiece, @x, @y, 0, 0, edx, 1
+								mov eax, 1
+								jmp L1
+							.ENDIF
+
+						.ELSEIF @y==ebx;最下边列
+							invoke getNearbyPiece, addr @leftUpPiece, @x, @y, -1, -1
+							invoke getNearbyPiece, addr @rightUpPiece, @x, @y, 1, -1
+							invoke getNearbyPiece, addr @upMimicPiece, @x, @y, 0, -2
+							invoke getNearbyPiece, addr @leftMimicPiece, @x, @y, -2, 0
+							invoke getNearbyPiece, addr @rightMimicPiece, @x, @y, 2, 0
+							invoke getNearbyPiece, addr @helperPiece,  @x, @y, 0, -3
+							mov edx, @leftUpPiece.pcolor
+							.IF	(@leftUpPiece.psize && @rightUpPiece.psize) && (@rightUpPiece.pcolor==edx)
+								invoke setNearbyPiece, @x, @y, 0, 0, edx, 1
+								mov eax, 1
+								jmp L1
+							.ENDIF
+							mov edx, @upMimicPiece.pcolor
+							.IF @helperPiece.pcolor==edx
+								invoke setNearbyPiece, @x, @y, 0, 0, edx, 1
+								mov eax, 1
+								jmp L1
+							.ENDIF
+							;向左平移有解
+							invoke getNearbyPiece, addr @helperPiece, @x, @y, -1, -2
+							mov edx, @leftUpPiece.pcolor
+							.IF @helperPiece.pcolor==edx
+								invoke setNearbyPiece, @x, @y, 0, 0, edx, 1
+								mov eax, 1
+								jmp L1
+							.ENDIF
+							invoke getNearbyPiece, addr @helperPiece, @x, @y, -3, 0
+							mov edx, @leftMimicPiece.pcolor
+							.IF  (@leftMimicPiece.psize && @helperPiece.psize) && @helperPiece.pcolor==edx;可向上平移连接两个连续块
+								invoke setNearbyPiece, @x, @y, 0, 0, edx, 1
+								mov eax, 1
+								jmp L1
+							.ENDIF
+							;向右平移有解
+							invoke getNearbyPiece, addr @helperPiece, @x, @y, 1, -2
+							mov edx, @rightUpPiece.pcolor
+							.IF @helperPiece.pcolor==edx
+								invoke setNearbyPiece, @x, @y, 0, 0, edx, 1
+								mov eax, 1
+								jmp L1
+							.ENDIF
+							invoke getNearbyPiece, addr @helperPiece, @x, @y, 3, 0
+							mov edx, @rightMimicPiece.pcolor
+							.IF  (@rightMimicPiece.psize && @helperPiece.psize) && @helperPiece.pcolor==edx
+								invoke setNearbyPiece, @x, @y, 0, 0, edx, 1
+								mov eax, 1
+								jmp L1
+							.ENDIF
+
+						.ENDIF
+						;没办法只能随机
+						invoke crt_rand
+						div colorType
+						invoke setNearbyPiece, @x, @y, 0, 0, edx, 1
+					.ENDIF
+				.ENDIF
+				inc @x
+			.ENDW
+			inc @y
+		.ENDW
+	.ENDIF
+
+	mov @x, 0
+	.WHILE @x < ecx
+		mov @y, 0
+		.WHILE @y < ecx
+			mov ebx, @x
+			mov CellSelected1.x, ebx
+			mov ebx, @y 
+			mov CellSelected1.y, ebx
+			invoke updatePieces
+			inc @y
+		.ENDW
+		inc @x
+	.ENDW
+	ret
+generateNewPieces endp
 
 
 
@@ -1394,6 +1413,7 @@ paintGrounds proc _hWnd,_hDC
 		add eax,CellSize
 		loop L1
 	invoke  SelectObject,_hDC,@OldPen
+	invoke 	DeleteObject,eax
 
 	invoke  CreatePen,PS_SOLID,3,0DBDBDBH
 	invoke  SelectObject,_hDC,eax
@@ -1417,6 +1437,7 @@ paintGrounds proc _hWnd,_hDC
 		add ebx,CellSize
 		loop L2
 	invoke  SelectObject,_hDC,@OldPen
+	invoke 	DeleteObject,eax
 	ret
 paintGrounds endp
 
@@ -1506,6 +1527,7 @@ paintPlayer proc _hWnd,_hDC
 	invoke Rectangle,_hDC,eax,ecx,ebx,edx
 
 	invoke  SelectObject,_hDC,@OldBrush
+	invoke 	DeleteObject,eax
 	ret
 paintPlayer endp
 
@@ -1521,6 +1543,7 @@ paintStartPage proc _hWnd,_hDC
 	INVOKE DrawText, _hDC, ADDR StartStr,-1, ADDR StartBtnRect, DT_CENTER 
 
 	invoke  SelectObject,_hDC,@OldBrush
+	invoke 	DeleteObject,eax
 	invoke  MoveToEx,_hDC,0,0,NULL
 	invoke  LineTo,_hDC,WWidth,0
 	ret
@@ -1566,7 +1589,9 @@ paintCell proc _hWnd:DWORD,_hDC:DWORD,pos:Cell,color:DWORD,_size:DWORD
 	invoke SetViewportOrgEx,_hDC, 0, 0, NULL
 
 	invoke  SelectObject,_hDC,@OldBrush
+	invoke 	DeleteObject,eax
 	invoke  SelectObject,_hDC,@OldPen
+	invoke 	DeleteObject,eax
 	popad
 	popad
 	ret
@@ -1635,22 +1660,40 @@ paintSelected proc _hWnd:DWORD,_hDC:DWORD
 		.ENDIF
 	.ENDIF
 	invoke  SelectObject,_hDC,@OldPen
+	invoke 	DeleteObject,eax
 	ret
 paintSelected endp
 
 
 Paint proc _hWnd,_hDC
-.IF PageStatus == 0
-	invoke paintStartPage,_hWnd,_hDC
-.ELSEIF PageStatus == 1
-	invoke paintGrounds,_hWnd,_hDC
-	invoke paintPlayer,_hWnd,_hDC
-	invoke paintSelected,_hWnd,_hDC
-	invoke paintPieces,_hWnd,_hDC
-	
-.ENDIF
-mov rePaintLabel,0
-ret
+	LOCAL @hdcBuffer:DWORD
+	LOCAL @cptBmp:DWORD
+	LOCAL @oldBmp:DWORD
+
+	invoke CreateCompatibleDC, _hDC
+	mov @hdcBuffer, eax
+	invoke CreateCompatibleBitmap, _hDC, WWidth, WHeight
+	mov @cptBmp, eax
+	invoke SelectObject, @hdcBuffer, @cptBmp
+	mov @oldBmp, eax
+	invoke PatBlt, @hdcBuffer, 0, 0, WWidth, WHeight, WHITENESS
+
+
+	.IF PageStatus == 0
+		invoke paintStartPage,_hWnd, @hdcBuffer
+	.ELSEIF PageStatus == 1
+		invoke paintGrounds,_hWnd,@hdcBuffer
+		invoke paintPlayer,_hWnd,@hdcBuffer
+		invoke paintSelected,_hWnd,@hdcBuffer
+		invoke paintPieces,_hWnd,@hdcBuffer	
+	.ENDIF
+	; mov rePaintLabel,0
+
+	invoke BitBlt, _hDC, 0, 0, WWidth, WHeight, @hdcBuffer, 0, 0, SRCCOPY
+	invoke SelectObject, @hdcBuffer, @oldBmp
+	invoke DeleteDC, @hdcBuffer
+	invoke DeleteObject, @cptBmp
+	ret
 Paint endp
 
 
