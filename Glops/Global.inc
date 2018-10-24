@@ -21,7 +21,9 @@ IFNDEF GLOBAL_INC
 	Piece STRUCT
 		pcolor	DWORD ?
 		psize	DWORD ?
-		;pindex	POINT <>
+		LstX	DWORD ?
+		LstY	DWORD ?
+		Status  DWORD ?
 	Piece ENDS
 
 ;----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -44,7 +46,8 @@ IFNDEF GLOBAL_INC
 				lineSize:DWORD,
 				pieces:Piece,
 				CellSelected1:POINT,
-				CellSelected2:POINT
+				CellSelected2:POINT,
+				InAnima:DWORD
 
 ;----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ;常量
@@ -52,7 +55,7 @@ IFNDEF GLOBAL_INC
 
 	.data
 	szClassName     Byte		'Glops',0																		;窗口名
-	repaintFreq     DWORD		20																				
+	repaintFreq     DWORD		5																				
 	WWidth			DWORD		1620																			;窗口宽度
 	WHeight			DWORD		1000																			;窗口宽度
 	StartBtnLT		POINT		<390,400>																		;开始按钮左上角
@@ -79,6 +82,8 @@ IFNDEF GLOBAL_INC
 	Colors			DWORD		00000FFH,04071FFH,0FF0000H,00FF00H,000FFFFH,07400CDH;红色，橙色，蓝色，绿色，黄色，紫色
 	testRect		POINT		<20,0>,<60,0>,<80,34>,<60,68>,<20,68>,<0,34>,<20,0>								;单个棋子的六个顶点的相对位置
 	testRectSM		POINT		<20,20>,<60,20>,<60,60>,<20,60>,<20,20>								;单个棋子的六个顶点的相对位置
+	AnimateTime		EQU		45
+	Speed			EQU		2
 
 
 

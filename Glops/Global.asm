@@ -22,6 +22,7 @@ include Global.inc
 
 	rowSize			DWORD		?
 	lineSize		DWORD		?
+	InAnima			DWORD		?
 	
 
 .code
