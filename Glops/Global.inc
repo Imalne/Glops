@@ -47,7 +47,9 @@ IFNDEF GLOBAL_INC
 				pieces:Piece,
 				CellSelected1:POINT,
 				CellSelected2:POINT,
-				InAnima:DWORD
+				InAnima:DWORD,
+				playerSize:DWORD,
+				glopping:DWORD
 
 ;----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ;常量
@@ -84,6 +86,8 @@ IFNDEF GLOBAL_INC
 	testRectSM		POINT		<20,20>,<60,20>,<60,60>,<20,60>,<20,20>								;单个棋子的六个顶点的相对位置
 	AnimateTime		EQU		45
 	Speed			EQU		2
+	player1ING		RECT		<0,0,80,80>
+	player2ING		RECT		<1520,0,1600,80>
 
 
 
@@ -95,6 +99,7 @@ IFNDEF GLOBAL_INC
 	leftMouseHandler PROTO
 	update PROTO
 	startAGame PROTO
+	initGame PROTO
 	Paint PROTO _hWnd:DWORD,_hDC:DWORD
 
 

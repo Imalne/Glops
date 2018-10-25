@@ -16,7 +16,8 @@ include			Global.inc
 
 generateNewPieces PROTO
 ___test PROTO tt:DWORD
-
+Hurt_By_Mov PROTO _Start:POINT,_End:POINT
+Hurt_By_Detonate PROTO
 .code
 
 
@@ -163,6 +164,16 @@ ExChange proc
 	mov exChangeLabel,1
 	ret
 ExChange endp
+
+changeSize proc
+	.IF playerSize == 0
+		mov playerSize,1
+	.ELSE
+		mov playerSize,0
+	.ENDIF
+	ret
+changeSize endp
+
 
 ResetExChange proc
 	mov exChangeLabel,0
@@ -516,7 +527,7 @@ movPiece endp
 
 _detonate Proc proc X:DWORD,Y:DWORD
 	LOCAl @res:Piece
-
+	invoke Hurt_By_Detonate
 	pushad
 	invoke getPiece,addr @res,X,Y
 	mov eax,X
@@ -745,16 +756,38 @@ updatePieces proc
 	LOCAL @toUpdate:DWORD
 	LOCAL @hasBomb:DWORD
 	LOCAL @Change:DWORD
+	LOCAL @got1:Piece
+	LOCAL @got2:Piece
 	.IF InAnima >= AnimateTime			;非移动状态
 		invoke CleanPieceStatus
 		invoke ___test,addr @Change
 		.IF @Change == 1
+			.IF exChangeLabel == 1
+				mov glopping,1
+			.ENDIF
 			invoke resetSelect
 			mov InAnima,0
+			invoke ResetExChange
+		.ELSE
+			.IF glopping == 1
+				mov glopping,0
+				invoke changeSize
+			.ENDIF
+			.IF exChangeLabel == 1
+				invoke getPiece,addr @got1,CellSelected1.x,CellSelected1.y
+				invoke getPiece,addr @got2,CellSelected2.x,CellSelected2.y
+				invoke setPiece,CellSelected1.x,CellSelected1.y,@got2.pcolor,@got2.psize
+				invoke setPiece,CellSelected2.x,CellSelected2.y,@got1.pcolor,@got1.psize
+				invoke setPieceLstPos,CellSelected1.x,CellSelected1.y,CellSelected2.x,CellSelected2.y,1
+				invoke setPieceLstPos,CellSelected2.x,CellSelected2.y,CellSelected1.x,CellSelected1.y,1
+				mov InAnima,0
+				mov exChangeLabel,0
+				invoke resetSelect
+			.ENDIF
 		.ENDIF
 	.ELSE								;移动状态
 	.ENDIF
-	invoke ResetExChange
+	;invoke ResetExChange
  	ret
 updatePieces endp
 
@@ -1229,6 +1262,7 @@ ___test proc tt:DWORD
 					invoke getPiece,addr @res,@Center.x,@Center.y
 					invoke setPiece,@Center.x,@Center.y,@res.pcolor,2
 					invoke movPiece,@Center,@Start,@End
+					invoke Hurt_By_Mov,@Start,@End
 				.ELSE
 					invoke Detonate,@Start,@End
 				.ENDIF
@@ -1252,7 +1286,9 @@ ___test endp
 
 ;更新玩家信息
 updatePlayer proc
-
+	.IF (player1.HP == 0) || (player2.HP == 0)
+		mov PageStatus,2
+	.ENDIF
 	ret
 updatePlayer endp
 
@@ -1268,6 +1304,81 @@ update proc
 	.ENDIF
 	ret
 update endp
+
+Hurt_By_Mov proc uses eax ebx _Start:POINT,_End:POINT
+	mov ebx,_Start.x
+	mov eax,_End.x
+
+	.IF eax == ebx
+		mov eax,_End.y
+		sub eax,_Start.y
+		imul eax,10
+		.IF playerSize == 1
+			mov ebx,player1.HP
+			.IF ebx>eax
+				sub ebx,eax
+			.ELSE
+				mov ebx,0
+			.ENDIF
+			mov player1.HP,ebx
+		.ELSE
+			mov ebx,player2.HP
+			.IF ebx>eax
+				sub ebx,eax
+			.ELSE
+				mov ebx,0
+			.ENDIF
+			mov player2.HP,ebx
+		.ENDIF
+	.ELSE
+		sub eax,ebx
+		imul eax,10
+		.IF playerSize == 1
+			mov ebx,player1.HP
+			.IF ebx>eax
+				sub ebx,eax
+			.ELSE
+				mov ebx,0
+			.ENDIF
+			mov player1.HP,ebx
+		.ELSE
+			mov ebx,player2.HP
+			.IF ebx>eax
+				sub ebx,eax
+			.ELSE
+				mov ebx,0
+			.ENDIF
+			mov player2.HP,ebx
+		.ENDIF
+	.ENDIF
+	ret
+Hurt_By_Mov endp
+
+Hurt_By_Detonate proc uses eax ebx
+	.IF playerSize == 1
+		mov eax,9
+		imul eax,3
+		mov ebx,player1.HP
+		.IF ebx>eax
+				sub ebx,eax
+			.ELSE
+				mov ebx,0
+			.ENDIF
+		mov player1.HP,ebx
+	.ELSE
+		mov eax,9
+		imul eax,3
+		mov ebx,player2.HP
+		.IF ebx>eax
+				sub ebx,eax
+			.ELSE
+				mov ebx,0
+			.ENDIF
+		mov player2.HP,ebx
+	.ENDIF
+	ret
+Hurt_By_Detonate endp
+
 
 ;----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ;棋子生成
@@ -1364,7 +1475,12 @@ initGame endp
 
 ;初始化整个棋盘的棋子
 startAGame proc
-	invoke initGame
+	mov edx,0
+	invoke crt_rand
+	mov ebx,2
+	div ebx
+	mov playerSize,edx
+	;invoke initGame
 	invoke initPieces
 	mov eax,HPLimit
 	mov player1.HP,eax
@@ -1372,6 +1488,7 @@ startAGame proc
 	mov ecx,BoardWidth
 	mov eax,0
 	mov ebx,0
+	mov glopping,0
 	mov InAnima,AnimateTime
 	mov edx,BoardWidth
 	mov esi,offset  Board
@@ -1401,7 +1518,8 @@ pressAtStartPage proc po:POINT
 		mov eax,po.x
 		mov ebx,po.y
 		.IF (eax>=StartBtnLT.x && eax<=StartBtnRB.x)&&(ebx>=StartBtnLT.y && ebx<=StartBtnRB.y)			;点击了开始游戏按钮
-			mov PageStatus,1																			;更改游戏状态为游戏状态
+			mov PageStatus,1
+			invoke startAGame;更改游戏状态为游戏状态
 			invoke Repaint
 		.ENDIF
 	popad
@@ -1414,69 +1532,48 @@ lMouseInGame proc pos:POINT
 	LOCAL @index:POINT
 	LOCAL @got1:Piece
 	LOCAL @got2:Piece
-	pushad
-	mov eax,pos.x
-	mov ebx,pos.y
-	.IF (eax<startX||eax>endX || ebx<startY || ebx>endY)										;如果点击棋盘以外的位置
-		ret
-	.ENDIF
-
-
-	mov edx, 0   
-	mov eax,pos.x
-	sub eax,startX
-	mov @posOnBoard.x,eax
-	mov ebx,CellSize
-	idiv ebx
-	mov edx, 0;
-	mov @index.x,eax
-	mov eax,pos.y
-	sub eax,startY
-	mov @posOnBoard.y,eax
-	mov ebx,CellSize
-	idiv ebx
-	mov @index.y,eax
-
-	;invoke getPiece,@index.x,@index.y,addr @got
-	mov eax,BoardWidth
-	.IF CellSelected1.x >= eax 
-		mov eax,@index.y
-		mov CellSelected1.y,eax
-		mov eax,@index.x
-		mov CellSelected1.x,eax
-	.ELSE
-		mov eax,CellSelected1.x
-		mov ebx,CellSelected1.y
-		.IF (@index.x == eax)&&(@index.y == ebx)
+	.IF InAnima >= AnimateTime
+		pushad
+		mov eax,pos.x
+		mov ebx,pos.y
+		.IF (eax<startX||eax>endX || ebx<startY || ebx>endY)										;如果点击棋盘以外的位置
 			ret
 		.ENDIF
 
-		mov ecx,CellSelected1.y
-		inc ebx
-		dec ecx
-		.IF ((@index.x == eax) && (@index.y == ecx || @index.y == ebx))
-			mov eax,CellSelected1.x
-			mov CellSelected2.x,eax
-			mov eax,CellSelected1.y
-			mov CellSelected2.y,eax
+
+		mov edx, 0   
+		mov eax,pos.x
+		sub eax,startX
+		mov @posOnBoard.x,eax
+		mov ebx,CellSize
+		idiv ebx
+		mov edx, 0;
+		mov @index.x,eax
+		mov eax,pos.y
+		sub eax,startY
+		mov @posOnBoard.y,eax
+		mov ebx,CellSize
+		idiv ebx
+		mov @index.y,eax
+
+		;invoke getPiece,@index.x,@index.y,addr @got
+		mov eax,BoardWidth
+		.IF CellSelected1.x >= eax 
 			mov eax,@index.y
 			mov CellSelected1.y,eax
 			mov eax,@index.x
 			mov CellSelected1.x,eax
-			invoke getPiece,addr @got1,CellSelected1.x,CellSelected1.y
-			invoke getPiece,addr @got2,CellSelected2.x,CellSelected2.y
-			invoke setPiece,CellSelected1.x,CellSelected1.y,@got2.pcolor,@got2.psize
-			invoke setPiece,CellSelected2.x,CellSelected2.y,@got1.pcolor,@got1.psize
-			; resetSelect
-			invoke ExChange
-			invoke Repaint
 		.ELSE
 			mov eax,CellSelected1.x
-			mov ebx,CellSelected1.x
+			mov ebx,CellSelected1.y
+			.IF (@index.x == eax)&&(@index.y == ebx)
+				ret
+			.ENDIF
+
 			mov ecx,CellSelected1.y
-			inc eax
-			dec ebx
-			.IF ((@index.y == ecx) && (@index.x == eax || @index.x == ebx))
+			inc ebx
+			dec ecx
+			.IF ((@index.x == eax) && (@index.y == ecx || @index.y == ebx))
 				mov eax,CellSelected1.x
 				mov CellSelected2.x,eax
 				mov eax,CellSelected1.y
@@ -1489,22 +1586,51 @@ lMouseInGame proc pos:POINT
 				invoke getPiece,addr @got2,CellSelected2.x,CellSelected2.y
 				invoke setPiece,CellSelected1.x,CellSelected1.y,@got2.pcolor,@got2.psize
 				invoke setPiece,CellSelected2.x,CellSelected2.y,@got1.pcolor,@got1.psize
-				;invoke resetSelect
+				invoke setPieceLstPos,CellSelected1.x,CellSelected1.y,CellSelected2.x,CellSelected2.y,1
+				invoke setPieceLstPos,CellSelected2.x,CellSelected2.y,CellSelected1.x,CellSelected1.y,1
+				mov InAnima,0
+				; resetSelect
 				invoke ExChange
 				invoke Repaint
 			.ELSE
-				mov eax,@index.y
-				mov CellSelected1.y,eax
-				mov eax,@index.x
-				mov CellSelected1.x,eax
-				mov eax,BoardWidth
-				mov CellSelected2.x,eax
-				mov CellSelected2.y,eax
+				mov eax,CellSelected1.x
+				mov ebx,CellSelected1.x
+				mov ecx,CellSelected1.y
+				inc eax
+				dec ebx
+				.IF ((@index.y == ecx) && (@index.x == eax || @index.x == ebx))
+					mov eax,CellSelected1.x
+					mov CellSelected2.x,eax
+					mov eax,CellSelected1.y
+					mov CellSelected2.y,eax
+					mov eax,@index.y
+					mov CellSelected1.y,eax
+					mov eax,@index.x
+					mov CellSelected1.x,eax
+					invoke getPiece,addr @got1,CellSelected1.x,CellSelected1.y
+					invoke getPiece,addr @got2,CellSelected2.x,CellSelected2.y
+					invoke setPiece,CellSelected1.x,CellSelected1.y,@got2.pcolor,@got2.psize
+					invoke setPiece,CellSelected2.x,CellSelected2.y,@got1.pcolor,@got1.psize
+					invoke setPieceLstPos,CellSelected1.x,CellSelected1.y,CellSelected2.x,CellSelected2.y,1
+					invoke setPieceLstPos,CellSelected2.x,CellSelected2.y,CellSelected1.x,CellSelected1.y,1
+					mov InAnima,0
+					;invoke resetSelect
+					invoke ExChange
+					invoke Repaint
+				.ELSE
+					mov eax,@index.y
+					mov CellSelected1.y,eax
+					mov eax,@index.x
+					mov CellSelected1.x,eax
+					mov eax,BoardWidth
+					mov CellSelected2.x,eax
+					mov CellSelected2.y,eax
+				.ENDIF
 			.ENDIF
 		.ENDIF
+		popad
+		invoke Repaint
 	.ENDIF
-	popad
-	invoke Repaint
 	ret
 lMouseInGame endp
 
@@ -1520,6 +1646,9 @@ leftMouseHandler proc
 		invoke pressAtStartPage,@stPos
 	.ELSEIF PageStatus == 1
 		invoke lMouseInGame,@stPos
+	.ELSEIF PageStatus == 2
+		invoke startAGame
+		mov PageStatus,1
 	.ENDIF
 	ret
 leftMouseHandler endp
@@ -1595,9 +1724,24 @@ paintPlayer proc _hWnd,_hDC
 	LOCAL @OldBrush
 	LOCAL @OldPen
 	LOCAL @newBrush
+
+	invoke  CreateSolidBrush,0000000H
+	invoke  SelectObject,_hDC,eax
+	mov @OldBrush,eax
+		.IF playerSize == 0
+			invoke Rectangle,_hDC,player1ING.left,player1ING.top,player1ING.right,player1ING.bottom
+		.ELSE
+			invoke Rectangle,_hDC,player2ING.left,player2ING.top,player2ING.right,player2ING.bottom
+		.ENDIF
+	invoke  SelectObject,_hDC,@OldBrush
+	invoke 	DeleteObject,eax
+
+
 	invoke  CreateSolidBrush,0eeee00H
 	invoke  SelectObject,_hDC,eax
 	mov @OldBrush,eax
+
+
 
 	mov eax,P1IconPos.x
 	mov ebx,P1IconPos.x
@@ -1672,6 +1816,9 @@ paintPlayer proc _hWnd,_hDC
 	sub ebx,HPGap
 	add edx,HPGap
 	invoke Rectangle,_hDC,eax,ecx,ebx,edx
+
+	
+
 
 	invoke  SelectObject,_hDC,@OldBrush
 	invoke 	DeleteObject,eax

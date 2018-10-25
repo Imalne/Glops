@@ -23,7 +23,8 @@ include Global.inc
 	rowSize			DWORD		?
 	lineSize		DWORD		?
 	InAnima			DWORD		?
-	
+	playerSize		DWORD		?
+	glopping		DWORD		?
 
 .code
 end

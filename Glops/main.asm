@@ -76,7 +76,7 @@ _WinMain        proc
 	mov     hWinMain,eax
 	invoke  ShowWindow,hWinMain,SW_SHOWNORMAL
 	invoke  UpdateWindow,hWinMain
-	invoke startAGame
+	invoke initGame
 	.while  TRUE
 		invoke  GetMessage,addr @stMsg,NULL,0,0
 		.break  .if eax ==0
