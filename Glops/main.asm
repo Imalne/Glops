@@ -30,6 +30,7 @@ _ProcWinMain    proc    uses ebx edi esi hWnd,uMsg,wParam,lParam
 					invoke Paint,hWnd,eax
 					invoke EndPaint,hWnd,addr @stPS
                 .elseif eax == WM_CREATE
+					invoke Init, hWnd, wParam, lParam
                     invoke SetTimer,hWnd,ID_TIMER,repaintFreq,NULL
 				.elseif eax == WM_LBUTTONDOWN
 					invoke leftMouseHandler

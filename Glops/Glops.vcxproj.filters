@@ -30,4 +30,34 @@
       <Filter>源文件</Filter>
     </None>
   </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="resource.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="Glops.rc">
+      <Filter>资源文件</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="img\start.bmp">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="img\background.bmp">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="img\background_over.bmp">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="img\restart.bmp">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="img\player1.bmp">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="img\player2.bmp">
+      <Filter>资源文件</Filter>
+    </Image>
+  </ItemGroup>
 </Project>

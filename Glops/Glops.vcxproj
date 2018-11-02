@@ -130,6 +130,20 @@
   <ItemGroup>
     <None Include="Global.inc" />
   </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="resource.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="Glops.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="img\background.bmp" />
+    <Image Include="img\background_over.bmp" />
+    <Image Include="img\player1.bmp" />
+    <Image Include="img\player2.bmp" />
+    <Image Include="img\restart.bmp" />
+    <Image Include="img\start.bmp" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
     <Import Project="$(VCTargetsPath)\BuildCustomizations\masm.targets" />

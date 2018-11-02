@@ -1513,18 +1513,44 @@ startAGame endp
 ;----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ;鼠标响应事件
 ;----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ButtonClicked proc USES ebx ecx edx button:GameButton, clickedPos:POINT
+	mov eax, clickedPos.x
+	mov ebx, clickedPos.y
+	mov ecx, button.posX
+	add ecx, button.bmpWidth
+	mov edx, button.posY
+	add edx, button.bmpHeight
+	.IF (eax>=button.posX && eax<=ecx)&&(ebx>=button.posY && ebx<=edx)
+		mov eax, 1
+	.ELSE
+		mov eax, 0
+	.ENDIF
+	ret
+ButtonClicked endp
+
 pressAtStartPage proc po:POINT
 	pushad
-		mov eax,po.x
-		mov ebx,po.y
-		.IF (eax>=StartBtnLT.x && eax<=StartBtnRB.x)&&(ebx>=StartBtnLT.y && ebx<=StartBtnRB.y)			;点击了开始游戏按钮
+		invoke ButtonClicked, startButton, po
+		.IF eax == 1			;点击了开始游戏按钮
 			mov PageStatus,1
-			invoke startAGame;更改游戏状态为游戏状态
+			invoke startAGame	;更改游戏状态为游戏状态
 			invoke Repaint
 		.ENDIF
 	popad
 	ret
 pressAtStartPage endp
+
+pressAtOverPage proc po:POINT
+pushad
+		invoke ButtonClicked, restartButton, po
+		.IF eax == 1			;点击了重新游戏按钮
+			mov PageStatus,1
+			invoke startAGame	;更改游戏状态为游戏状态
+			invoke Repaint
+		.ENDIF
+	popad
+	ret
+pressAtOverPage endp
 
 ;游戏界面下的点击事件
 lMouseInGame proc pos:POINT
@@ -1647,8 +1673,7 @@ leftMouseHandler proc
 	.ELSEIF PageStatus == 1
 		invoke lMouseInGame,@stPos
 	.ELSEIF PageStatus == 2
-		invoke startAGame
-		mov PageStatus,1
+		invoke pressAtOverPage, @stPos
 	.ENDIF
 	ret
 leftMouseHandler endp
@@ -1720,12 +1745,12 @@ paintHP proc  _hWnd,_hDC
 paintHP endp
 
 ;绘制玩家信息
-paintPlayer proc _hWnd,_hDC
+paintPlayer proc _hWnd,_hDC,_hdcBmp
 	LOCAL @OldBrush
 	LOCAL @OldPen
 	LOCAL @newBrush
 
-	invoke  CreateSolidBrush,0000000H
+	invoke  CreateSolidBrush,0cc7a00H
 	invoke  SelectObject,_hDC,eax
 	mov @OldBrush,eax
 		.IF playerSize == 0
@@ -1741,23 +1766,11 @@ paintPlayer proc _hWnd,_hDC
 	invoke  SelectObject,_hDC,eax
 	mov @OldBrush,eax
 
-
-
-	mov eax,P1IconPos.x
-	mov ebx,P1IconPos.x
-	mov ecx,P1IconPos.y
-	mov edx,P1IconPos.y
-	add ebx,IconSize
-	add edx,IconSize
-	invoke Rectangle,_hDC,eax,ecx,ebx,edx
+	invoke SelectObject, _hdcBmp, player1Bmp
+	invoke BitBlt, _hDC, P1IconPos.x, P1IconPos.y, WWidth, WHeight, _hdcBmp, 0, 0, SRCCOPY
 	
-	mov eax,P2IconPos.x
-	mov ebx,P2IconPos.x
-	mov ecx,P2IconPos.y
-	mov edx,P2IconPos.y
-	add ebx,IconSize
-	add edx,IconSize
-	invoke Rectangle,_hDC,eax,ecx,ebx,edx
+	invoke SelectObject, _hdcBmp, player2Bmp
+	invoke BitBlt, _hDC, P2IconPos.x, P2IconPos.y, WWidth, WHeight, _hdcBmp, 0, 0, SRCCOPY
 
 	invoke  SelectObject,_hDC,@OldBrush
 	invoke 	DeleteObject,eax
@@ -1774,7 +1787,7 @@ paintPlayer proc _hWnd,_hDC
 	add ebx,HPGap
 	add edx,HPGap
 	add edx,HPGap
-	invoke Rectangle,_hDC,eax,ecx,ebx,edx
+	invoke RoundRect,_hDC,eax,ecx,ebx,edx,HPStripWidth,HPStripWidth
 
 	mov eax,P2HPStripPos.x
 	mov ebx,P2HPStripPos.x
@@ -1786,7 +1799,7 @@ paintPlayer proc _hWnd,_hDC
 	sub eax,HPGap
 	add edx,HPGap
 	add edx,HPGap
-	invoke Rectangle,_hDC,eax,ecx,ebx,edx
+	invoke RoundRect,_hDC,eax,ecx,ebx,edx,HPStripWidth,HPStripWidth
 
 	invoke  SelectObject,_hDC,@OldBrush
 	invoke 	DeleteObject,eax
@@ -1803,7 +1816,7 @@ paintPlayer proc _hWnd,_hDC
 	add ecx,HPGap
 	add ebx,HPGap
 	add edx,HPGap
-	invoke Rectangle,_hDC,eax,ecx,ebx,edx
+	invoke RoundRect,_hDC,eax,ecx,ebx,edx,HPStripWidth,HPStripWidth
 
 	mov eax,P2HPStripPos.x
 	mov ebx,P2HPStripPos.x
@@ -1815,7 +1828,7 @@ paintPlayer proc _hWnd,_hDC
 	add ecx,HPGap
 	sub ebx,HPGap
 	add edx,HPGap
-	invoke Rectangle,_hDC,eax,ecx,ebx,edx
+	invoke RoundRect,_hDC,eax,ecx,ebx,edx,HPStripWidth,HPStripWidth
 
 	
 
@@ -1828,20 +1841,22 @@ paintPlayer endp
 
 
 ;绘制开始界面，按钮
-paintStartPage proc _hWnd,_hDC
-	LOCAL @OldBrush
-	invoke  GetStockObject,BLACK_BRUSH
-	invoke  SelectObject,_hDC,eax
-	mov @OldBrush,eax
-	invoke RoundRect,_hDC,StartBtnLT.x,StartBtnLT.y,StartBtnRB.x,StartBtnRB.y,20,20
-	INVOKE DrawText, _hDC, ADDR StartStr,-1, ADDR StartBtnRect, DT_CENTER 
-
-	invoke  SelectObject,_hDC,@OldBrush
-	invoke 	DeleteObject,eax
-	invoke  MoveToEx,_hDC,0,0,NULL
-	invoke  LineTo,_hDC,WWidth,0
+paintStartPage proc _hWnd,_hDC,_hdcBmp
+	invoke SelectObject, _hdcBmp, backgroundBmp
+	invoke BitBlt, _hDC, 0, 0, WWidth, WHeight, _hdcBmp, 0, 0, SRCCOPY
+	invoke SelectObject, _hdcBmp, startButton.hBmp
+	invoke BitBlt, _hDC, startButton.posX, startButton.posY, WWidth, WHeight, _hdcBmp, 0, 0, SRCCOPY
 	ret
 paintStartPage endp
+
+;绘制结束界面
+paintEndPage proc _hWnd,_hDC,_hdcBmp
+	invoke SelectObject, _hdcBmp, backgroundOverBmp
+	invoke BitBlt, _hDC, 0, 0, WWidth, WHeight, _hdcBmp, 0, 0, SRCCOPY
+	invoke SelectObject, _hdcBmp, restartButton.hBmp
+	invoke BitBlt, _hDC, restartButton.posX, restartButton.posY, WWidth, WHeight, _hdcBmp, 0, 0, SRCCOPY
+	ret
+paintEndPage endp
 
 
 ;绘制单个棋子
@@ -2018,6 +2033,7 @@ Paint proc _hWnd,_hDC
 	LOCAL @hdcBuffer:DWORD
 	LOCAL @cptBmp:DWORD
 	LOCAL @oldBmp:DWORD
+	LOCAL @hdcBmp:DWORD
 
 	invoke CreateCompatibleDC, _hDC
 	mov @hdcBuffer, eax
@@ -2026,15 +2042,19 @@ Paint proc _hWnd,_hDC
 	invoke SelectObject, @hdcBuffer, @cptBmp
 	mov @oldBmp, eax
 	invoke PatBlt, @hdcBuffer, 0, 0, WWidth, WHeight, WHITENESS
+	invoke CreateCompatibleDC, _hDC
+	mov @hdcBmp, eax
 
 
 	.IF PageStatus == 0
-		invoke paintStartPage,_hWnd, @hdcBuffer
+		invoke paintStartPage,_hWnd, @hdcBuffer, @hdcBmp
 	.ELSEIF PageStatus == 1
 		invoke paintGrounds,_hWnd,@hdcBuffer
-		invoke paintPlayer,_hWnd,@hdcBuffer
+		invoke paintPlayer,_hWnd,@hdcBuffer, @hdcBmp
 		invoke paintSelected,_hWnd,@hdcBuffer
 		invoke paintPieces,_hWnd,@hdcBuffer	
+	.ELSEIF PageStatus == 2
+		invoke paintEndPage, _hWnd, @hdcBuffer, @hdcBmp
 	.ENDIF
 	; mov rePaintLabel,0
 
@@ -2042,9 +2062,40 @@ Paint proc _hWnd,_hDC
 	invoke SelectObject, @hdcBuffer, @oldBmp
 	invoke DeleteDC, @hdcBuffer
 	invoke DeleteObject, @cptBmp
+	invoke DeleteObject, @hdcBmp
 	ret
 Paint endp
 
+CreateGameButton proc USES eax button:DWORD, _hBmp:DWORD, _posX:DWORD, _posY:DWORD, _bmpWidth:DWORD, _bmpHeight:DWORD
+	mov esi, button
+	mov eax, _hBmp
+	mov (GameButton PTR [esi]).hBmp, eax
+	mov eax, _posX
+	mov (GameButton PTR [esi]).posX, eax
+	mov eax, _posY
+	mov (GameButton PTR [esi]).posY, eax
+	mov eax, _bmpWidth
+	mov (GameButton PTR [esi]).bmpWidth, eax
+	mov eax, _bmpHeight
+	mov (GameButton PTR [esi]).bmpHeight, eax
+	ret
+CreateGameButton endp
 
+Init proc hWnd:DWORD, wParam:DWORD, lParam:DWORD
+	invoke LoadBitmap, hInstance, 101
+	invoke CreateGameButton, addr startButton, eax, 760, 650, 128, 64
+	invoke LoadBitmap, hInstance, 104
+	invoke CreateGameButton, addr restartButton, eax, 760, 650, 128, 64
+
+	invoke LoadBitmap, hInstance, 102
+	mov backgroundBmp, eax
+	invoke LoadBitmap, hInstance, 103
+	mov backgroundOverBmp, eax
+	invoke LoadBitmap, hInstance, 105
+	mov player1Bmp, eax
+	invoke LoadBitmap, hInstance, 106
+	mov player2Bmp, eax
+	ret
+Init endp
 
 end

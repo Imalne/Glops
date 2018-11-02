@@ -25,6 +25,14 @@ include Global.inc
 	InAnima			DWORD		?
 	playerSize		DWORD		?
 	glopping		DWORD		?
+	
+	backgroundBmp   DWORD       ?
+	backgroundOverBmp DWORD     ?
+	player1Bmp      DWORD       ?
+	player2Bmp      DWORD       ?
+
+	startButton     GameButton  <>
+	restartButton   GameButton  <>
 
 .code
 end

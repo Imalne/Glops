@@ -26,6 +26,15 @@ IFNDEF GLOBAL_INC
 		Status  DWORD ?
 	Piece ENDS
 
+	;按钮
+	GameButton STRUCT
+		hBmp 	  DWORD ?
+		posX 	  DWORD ?
+		posY 	  DWORD ?
+		bmpWidth  DWORD ?
+		bmpHeight DWORD ?
+	GameButton ENDS
+
 ;----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ;全局变量
 ;----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -51,6 +60,13 @@ IFNDEF GLOBAL_INC
 				playerSize:DWORD,
 				glopping:DWORD
 
+	externdef   backgroundBmp:DWORD,
+				backgroundOverBmp:DWORD,
+				player1Bmp:DWORD,
+				player2Bmp:DWORD,
+				startButton:GameButton,
+				restartButton:GameButton
+
 ;----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ;常量
 ;----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -60,10 +76,6 @@ IFNDEF GLOBAL_INC
 	repaintFreq     DWORD		5																				
 	WWidth			DWORD		1620																			;窗口宽度
 	WHeight			DWORD		1000																			;窗口宽度
-	StartBtnLT		POINT		<390,400>																		;开始按钮左上角
-	StartBtnRB		POINT		<690,450>																		;开始按钮右下角
-	StartBtnRect	RECT		<390,400,690,450>																;开始按钮区域
-	StartStr		Byte		"Start Game",0																	;按钮文字
 	CellSize		DWORD		90																				;单元格大小
 	BoardWidth		DWORD		9																				;棋盘单行或单列上单元格的数量
 	;BoardLength		DWORD		12
@@ -72,10 +84,10 @@ IFNDEF GLOBAL_INC
 	endX			DWORD		1220																			;窗口右下角坐标
 	endY			DWORD		870
 	HPLimit			DWORD		800																				;HP上线
-	P1IconPos		POINT		<0,0>																			;玩家一头像左上角
-	P2IconPos		POINT		<1530,0>																		;玩家二头像左上角
-	P1HPStripPos	POINT		<0,90>																			;玩家一血条左上角
-	P2HPStripPos	POINT		<1550,90>																		;玩家二血条左上角
+	P1IconPos		POINT		<105,15>																			;玩家一头像左上角
+	P2IconPos		POINT		<1425,15>																		;玩家二头像左上角
+	P1HPStripPos	POINT		<105,120>																		;玩家一血条左上角
+	P2HPStripPos	POINT		<1445,120>																		;玩家二血条左上角
 	IconSize		DWORD		70																				;玩家头像大小
 	HPStripLength	DWORD		800																				;血条框长度
 	HPStripWidth	DWORD		50																				;血条框宽度
@@ -84,10 +96,10 @@ IFNDEF GLOBAL_INC
 	Colors			DWORD		00000FFH,04071FFH,0FF0000H,00FF00H,000FFFFH,07400CDH;红色，橙色，蓝色，绿色，黄色，紫色
 	testRect		POINT		<20,0>,<60,0>,<80,34>,<60,68>,<20,68>,<0,34>,<20,0>								;单个棋子的六个顶点的相对位置
 	testRectSM		POINT		<20,20>,<60,20>,<60,60>,<20,60>,<20,20>								;单个棋子的六个顶点的相对位置
-	AnimateTime		EQU		45
-	Speed			EQU		2
-	player1ING		RECT		<0,0,80,80>
-	player2ING		RECT		<1520,0,1600,80>
+	AnimateTime		EQU			45
+	Speed			EQU			2
+	player1ING		RECT		<100,10,180,90>
+	player2ING		RECT		<1420,10,1500,90>
 
 
 
@@ -101,6 +113,7 @@ IFNDEF GLOBAL_INC
 	startAGame PROTO
 	initGame PROTO
 	Paint PROTO _hWnd:DWORD,_hDC:DWORD
+	Init PROTO hWnd:DWORD, wParam:DWORD, lParam:DWORD
 
 
 ELSE
